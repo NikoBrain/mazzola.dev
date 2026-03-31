@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 1: Teaching a Spacecraft to Think — Senior Project Blog</title>
+  <meta name="blog-title" content="Teaching a Spacecraft to Think for Itself">
+  <meta name="blog-date" content="March 3, 2025">
+  <meta name="blog-week" content="Week 1">
+  <meta name="blog-description" content="An introduction to using deep reinforcement learning to autonomously optimize fuel consumption across multi-planetary missions.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<!-- Star field canvas -->
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- NAV -->
+  <nav class="site-nav">
+    <a href="/" class="nav-brand">mazzola.dev</a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero reveal">
+    <p class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 1 &nbsp;·&nbsp; March 3, 2025</p>
+    <h1 class="hero-title">Teaching a Spacecraft<br>to <em>Think</em> for Itself</h1>
+    <p class="hero-sub">
+      An introduction to using deep reinforcement learning to autonomously optimize fuel consumption across multi-planetary missions.
+    </p>
+    <!-- <div class="tag-row">
+      <span class="tag">Reinforcement Learning</span>
+      <span class="tag">Astrodynamics</span>
+      <span class="tag hot">Senior Project</span>
+      <span class="tag">PPO</span>
+      <span class="tag">Trajectory Optimization</span>
+    </div> -->
+  </header>
+
+  <!-- ORBIT ANIMATION -->
+  <div class="orbit-container reveal">
+    <!-- <div class="orbit-ring" style="--size:190px; --speed:14s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div> -->
+    <div class="orbit-ring" style="--size:120px; --speed:8s;">
+      <div class="orbit-dot" style="--dot:#009911;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 1: CONTEXT -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> The Problem with Getting Somewhere</h2>
+
+    <p>
+      Space is expensive because of the fuel. Every kilogram you want to move requires more fuel, adding more weight, and finally requiring even more fuel to lift. This is described by the Tsiolkovsky rocket equation and it makes the cost of space-travel increase exponentially. Delivering one kilogram to low Earth orbit costs roughly <strong>$7,342</strong>. Delivering that same kilogram to the surface of the Moon costs nearly <strong>$1.2 million</strong>. Push past Mars, and the numbers become staggering.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">$7K</span>
+        <span class="stat-label">Cost per kg to Low Earth Orbit</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">$1.2M</span>
+        <span class="stat-label">Cost per kg to the Moon's surface</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">$11B</span>
+        <span class="stat-label">Estimated upper cost of NASA's Mars Sample Return</span>
+      </div>
+    </div>
+
+    <p>
+      There is, however, a trick that spacecraft engineers have long exploited: the gravity assist. By going past a planet at the right angle and speed, spacecraft can "steal" energy from a planet's orbital motion around the Sun, dramatically reducing the fuel required for deep-space missions. The Voyager probes, launched in 1977, used a rare planetary alignment to achieve a "Grand Tour" of the outer solar system that would have been physically impossible without gravity assists. Cassini used three separate gravity assists (Venus twice, then Earth) just to build up enough speed to reach Saturn.
+    </p>
+
+    <figure style="display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; margin:2rem 0 0;">
+      <a title="Phoenix7777, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Animation_of_Voyager_2_trajectory.gif" style="flex:0 1 53%;">
+        <img style="width:100%; display:block;" alt="Animation of Voyager 2 trajectory" src="https://upload.wikimedia.org/wikipedia/commons/1/1d/Animation_of_Voyager_2_trajectory.gif?_=20201030034326">
+      </a>
+      <a title="Rachelz9999, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:GravAssis.gif" style="flex:0 1 36%;">
+        <img style="width:100%; display:block;" alt="GravAssis" src="https://upload.wikimedia.org/wikipedia/commons/c/c9/GravAssis.gif?_=20170101094815">
+      </a>
+    </figure>
+    <figcaption style="font-size:.78rem; color:var(--muted); text-align:center; margin:0.5rem 0 2rem; line-height:1.5;">
+      <em>Left:</em> Voyager 2's trajectory through the outer solar system, using gravity assists at Jupiter, Saturn, Uranus, and Neptune.
+      <em>Right:</em> How a gravity assist works in two reference frames: in the planet's frame the spacecraft's speed is unchanged, but in the Sun's frame it gains velocity from the planet's orbital motion.
+    </figcaption>
+
+    <p>
+      The problem is that planning these trajectories is extraordinarily complex. The search space for multi-gravity-assist routes is enormous as every possible sequence and timing represents a different option, and traditional optimization methods struggle with this "combinatorial explosion." These methods are also slow as they require extensive computation up front and cannot adapt when reality differs from the model. As a result, they need ground operators to intervene every time a correction is required. For missions to the outer planets, where communication delays can exceed an hour each way, waiting for a human to correct course is simply not an option.
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">The Core Problem</span>
+      <p>Traditional methods find near-optimal trajectories but are rigid and computationally expensive. A spacecraft that could <em>learn</em> its own guidance policy that adapts in real-time to sensor noise and unexpected perturbations would be a fundamentally different kind of mission capability.</p>
+    </div>
+
+    <p>
+      This is the problem that motivates my senior project. I want to explore whether modern deep
+      reinforcement learning, specifically an algorithm called Proximal Policy Optimization (PPO),
+      can learn fuel-optimal trajectory policies for multi-planetary missions while remaining robust to
+      real-world uncertainties while still running onboard in milliseconds.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 2: WHAT I'VE BEEN READING -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> Week 1: Into the Literature</h2>
+
+    <p>
+      This first week was devoted entirely to reading to build a strong theoretical foundation. My reading list covered three major sources, each addressing a different layer of the problem: the mathematics of learning, the algorithm I plan to use, and the state of the art in applying that algorithm to spacecraft.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">— Reading Log, Week 1 —</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Reinforcement Learning: An Introduction (2nd ed.)</div>
+          <div class="re-author">Sutton & Barto, 2018 — Chapters 1, 3, 5, 13</div>
+        </div>
+        <div class="re-note">Foundation: MDPs, Monte Carlo, Policy Gradients</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Proximal Policy Optimization Algorithms</div>
+          <div class="re-author">Schulman, Wolski, Dhariwal, Radford & Klimov, 2017</div>
+        </div>
+        <div class="re-note">Core algorithm for the project</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Reinforcement Learning for Low-Thrust Trajectory Design of Interplanetary Missions</div>
+          <div class="re-author">Zavoli & Federici, 2021</div>
+        </div>
+        <div class="re-note">Most directly related prior work</div>
+      </div>
+    </div>
+
+    <p>
+      What follows is a walkthrough of the key ideas I pulled from each source and how they connect to what I'm trying to build.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 3: SUTTON & BARTO -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Learning by Doing: The RL Framework</h2>
+
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          Sutton and Barto's textbook is essentially <em>the</em> foundational reference for the entire field of reinforcement learning. Rather than learning from labeled examples (supervised learning) or by finding structure in data (unsupervised learning), RL is about learning from <em>interaction</em>. An agent takes actions in an environment, observes what happens, and gradually learns which actions lead to the most reward. As Sutton and Barto describe it in Chapter 1, the RL agent is always trying to maximize a cumulative reward signal, and crucially, nobody tells it how to do this. It must discover this on its own through trial and error.
+        </p>
+
+        <p>
+          Chapter 3 formalizes this with the concept of the <strong>Markov Decision Process (MDP)</strong>, which is the mathematical framework used to model trajectory problems. In an MDP, at each time step $t$, an agent observes a state $s$, chooses an action $a$, receives a reward $r$, and transitions to a new state $s'$. The agent's goal is to find a <strong>policy</strong> (a mapping from states to actions) maximizing its expected cumulative future reward.
+        </p>
+      </div>
+
+      <figure style="flex:0 0 256px; margin:0; text-align:center;">
+        <a title="Megajuice, CC0, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Reinforcement_learning_diagram.svg">
+          <img width="256" alt="Components in a typical Reinforcement Learning (RL) system." src="https://upload.wikimedia.org/wikipedia/commons/1/1b/Reinforcement_learning_diagram.svg" style="filter: invert(1); width:100%; display:block;">
+        </a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          The reinforcement learning loop: an agent selects actions in an environment, which returns a reward signal and an updated state representation, driving the agent to learn an optimal policy through trial and error.
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="formula-box">
+      <span class="comment"># The Bellman Optimality Equation (Sutton &amp; Barto, Ch. 3)</span><br>
+      $$v^*(s) = \max_a \sum_{s',\,r} p(s', r \mid s, a)\bigl[r + \gamma \cdot v^*(s')\bigr]$$
+      <span class="comment"># Policy: maps state → action</span><br>
+      $$\pi(a \mid s) \;\rightarrow\; \text{probability of taking action } a \text{ in state } s$$
+      <span class="comment"># Return: discounted sum of future rewards</span><br>
+      $$G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots \qquad (\gamma \in [0,1])$$
+    </div>
+
+    <p>
+      Spacecraft trajectory optimization surpisingly fits naturally into this framework. The spacecraft's position, velocity, and remaining fuel mass define the state. The thrust vector (magnitude and direction) defines the action. The negative of fuel consumed is a simple reward. And the optimal policy is the one that gets the spacecraft to its destination using the least propellant. Zavoli and Federici (2021) explicitly formalize a three-dimensional Earth-Mars rendezvous mission this way, defining the spacecraft state at time step $k$ as a seven-dimensional vector comprising position, velocity, and mass.
+    </p>
+
+    <p>
+      Chapter 5 introduced me to <strong>Monte Carlo methods</strong>, which I'll need for validating my trained policies. The key idea in MC methods is that you can estimate the expected return of a policy by simply running it many times and averaging the results. I'll run the same policy across hundreds or thousands of randomly varied scenarios, adding different levels of sensor noise and unexpected perturbations, and measure how often it succeeds. Sutton and Barto frame this as estimating value functions directly from sampled episodes, which makes MC methods especially powerful in environments where we don't have a perfect model of the dynamics (which is always true for real spacecraft).
+    </p>
+
+    <p>
+      Chapter 13 on <strong>Policy Gradient Methods</strong> was perhaps the most directly relevant to my project. Rather than learning the value of states and then deriving a policy, policy gradient methods directly optimize the parameters of the policy itself, following the gradient of expected return. The key result is the <em>Policy Gradient Theorem</em>, which gives us a way to compute this gradient from sampled experience:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Policy Gradient Theorem (Sutton &amp; Barto, Ch. 13)</span><br>
+      $$\nabla J(\theta) \propto \sum_s \mu (s) \sum_a q_\pi (s,a) \nabla \pi (a|s,\bm{\theta})$$
+      <span class="comment"># Advantage Actor-Critic: subtract baseline to reduce variance</span><br>
+      $$A^\pi(s,a) = Q^\pi(s,a) - V^\pi(s)$$
+      <span class="comment"># Actor learns policy, Critic estimates value function</span>
+    </div>
+
+    <p>
+      For continuous action spaces, the same as spacecraft thrust commands, Sutton and Barto recommend parameterizing the policy as a Gaussian distribution, with the neural network outputting the mean (and sometimes standard deviation) of that distribution. This allows the agent to output continuous-valued thrust vectors rather than being restricted to discrete choices.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Key Insight from Sutton & Barto</span>
+      <p>
+        The critical tradeoff in RL is between <strong>exploration</strong> (trying new actions to learn what is better) and <strong>exploitation</strong> (using what has already been learned). For spacecraft guidance, this has a real cost: exploration means occasionally wasting fuel on suboptimal maneuvers during training. The design of the reward function and the training environment must balance these pressures carefully.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 4: SCHULMAN et al. PPO -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> PPO: Stable Learning at Scale</h2>
+
+    <p>
+      The Schulman et al. (2017) paper introduced Proximal Policy Optimization, which has since become one of the most widely used deep RL algorithms. When you update a neural network policy using gradient ascent, it's easy to accidentally take a step that drastically changes the policy's behavior, destroying everything it has learned. Earlier approaches like Trust Region Policy Optimization (TRPO) addressed this with an explicit constraint on how much the policy could change per update, but TRPO required second-order optimization (expensive and complex to implement).
+    </p>
+
+    <p>
+      PPO's insight is to instead use a <strong>clipped surrogate objective</strong>, which modifies the loss function to discourage large policy updates without requiring any expensive constraint machinery. Let $r(\theta)$ be the probability ratio between the new and old policy for a given action:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># PPO Clipped Objective (Schulman et al., 2017, Eq. 7)</span><br>
+      $$r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}$$
+      $$L^{\text{CLIP}}(\theta) = \mathbb{E}\Bigl[\min\bigl(r_t(\theta)\hat{A}_t,\;\text{clip}(r_t(\theta),\,1-\varepsilon,\,1+\varepsilon)\hat{A}_t\bigr)\Bigr]$$
+      <span class="comment"># $\varepsilon = 0.2$ is the standard hyperparameter</span><br>
+      <span class="comment"># $\hat{A}_t$ = advantage estimate at timestep $t$</span><br>
+      <span class="comment"># If advantage is positive → clip upward gain; if negative → clip downward</span>
+    </div>
+
+    <p>
+      The clipping means that if an update would move the policy too far in a beneficial direction (i.e., when $r_t(\theta) > 1 + \varepsilon$ and $\hat{A}_t > 0$), that excess gain is simply ignored and the algorithm doesn't get credit for going too far. This creates a natural "pessimistic bound" that discourages aggressive updates. Schulman et al. found that using $\varepsilon = 0.2$ performed best in their benchmarks, outperforming TRPO on almost all continuous control tasks while being dramatically simpler to implement.
+    </p>
+
+    <p>
+      In addition to the clipped objective, PPO also adds a value function loss term and an entropy bonus to its total objective:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Full PPO Objective (Schulman et al., 2017, Eq. 9)</span><br>
+      $$L^{\text{total}}(\theta) = \mathbb{E}\bigl[L^{\text{CLIP}}(\theta) - c_1 L^{\text{VF}}(\theta) + c_2 S[\pi_\theta](s_t)\bigr]$$
+      <span class="comment"># $L^{\text{VF}}$ = value function MSE loss (Critic)</span><br>
+      <span class="comment"># $S[\pi]$ = entropy bonus (encourages exploration)</span><br>
+      <span class="comment"># $c_1, c_2$ are tunable coefficients</span>
+    </div>
+
+    <p>
+      The entropy bonus is particularly important for my application. Without it, the policy could converge prematurely to a deterministic and suboptimal solution. For instance, it may always go in a particular direction regardless of the spacecraft's actual state. Adding entropy to the objective pushes the policy to remain somewhat stochastic during training, maintaining exploration. Schulman et al. validated PPO across 49 Atari games and 7 MuJoCo continuous control benchmarks, showing it struck the best overall balance between complexity and final performance.
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">Why PPO for Spacecraft?</span>
+      <p>
+        Spacecraft trajectory optimization involves a high-dimensional, continuous action space (thrust magnitude and direction) with complex, nonlinear dynamics. PPO's strengths of stable training without second-order methods and empirically strong performance on continuous control make it a natural fit.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 5: ZAVOLI & FEDERICI -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> Prior Works</h2>
+
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          Zavoli and Federici's (2021) paper is the work I keep returning to as the closest precedent
+          for my project. They apply PPO to a three-dimensional, time-fixed Earth-Mars rendezvous mission. It's a minimum-fuel problem where a spacecraft must match Mars's position and velocity at a specified arrival time. What makes the paper especially relevant is that they explicitly introduce four distinct types of uncertainty: state noise (unmodeled dynamics), observation noise (sensor error), control actuation errors (thruster imprecision), and missed thrust events (complete loss of thrust for one or more consecutive time steps).
+        </p>
+
+        <p>
+          The MDP formulation they use maps directly onto the Sutton & Barto framework I studied this week. The spacecraft state at each time step is a seven-dimensional vector of position, velocity, and mass. The commanded action is an impulsive delta-V (a change in velocity), subject to a maximum magnitude constraint derived from the Tsiolkovsky equation and the Sims-Flanagan trajectory model. The reward function penalizes propellant consumption, constraint violations on the maximum delta-V, and terminal state errors (missing Mars at the end).
+        </p>
+      </div>
+
+      <figure style="flex:0 0 256px; margin:0; text-align:center;">
+        <a title="Leafnode, CC BY-SA 2.5 &lt;https://creativecommons.org/licenses/by-sa/2.5&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Hohmann_transfer_orbit.svg">
+          <img width="256" alt="Hohmann transfer orbit" src="https://upload.wikimedia.org/wikipedia/commons/d/df/Hohmann_transfer_orbit.svg" style="filter: invert(1); width:100%; display:block;">
+        </a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          A Hohmann transfer orbit: the minimum-energy two-impulse manoeuvre that moves a spacecraft between two circular orbits by following an elliptical path tangent to both.
+        </figcaption>
+      </figure>
+    </div>
+
+    <p>
+      In the deterministic (no-noise) case, the RL policy trained by PPO achieved a final spacecraft mass of 600.23 kg which is nearly identical to the 599.98 kg obtained by a classical indirect optimization method that took seconds to compute (versus 2-3 hours for the RL training). This validates that PPO can, in principle, match optimal solutions. The real power emerged in the stochastic scenarios: when the policy was trained with state uncertainty and then tested across 500 Monte Carlo episodes, it succeeded 80% of the time. By contrast, the deterministic policy (trained without noise) succeeded essentially 0% of the time in those same noisy conditions as it had no ability to adapt.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">The Gap This Paper Leaves Open</span>
+      <p>
+        Zavoli and Federici focus on a single fixed mission: Earth to Mars in 358.79 days with one
+        trajectory arc. They explicitly note that the high computational cost "discourages the use
+        of a model-free RL algorithm" for deterministic problems. Multi-gravity-assist trajectories,
+        which involve sequential planetary encounters and vastly larger
+        search spaces, remain largely unexplored in the RL literature. This is the gap I aim to
+        address.
+      </p>
+    </div>
+
+    <p>
+      Zavoli and Federici used an $\varepsilon$-constraint relaxation technique, where the terminal constraint tolerance starts loose ($10^{-2}$) and tightens to the final value ($10^{-3}$) halfway through training. This gives the policy room to explore freely at first before being held to strict accuracy standards. I anticipate needing a similar curriculum-style approach in my own work, especially as mission complexity increases with multi-gravity-assist scenarios.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 6: INQUIRY -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> The Question I'm Trying to Answer</h2>
+
+    <p>
+      All three readings this week converge on a single, sharp inquiry: <em>Can deep reinforcement learning, specifically PPO, enable a spacecraft to autonomously optimize fuel consumption across multi-gravity-assist trajectories while correcting for real-world uncertainties in real time?</em>
+    </p>
+
+    <p>
+      This breaks down into three sub-questions that will drive my experimental design:
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">Sub-Question 1</span>
+      <p>What RL architecture (feedforward MLP, LSTM, or transformer) most effectively learns optimal control policies across the different phases of a multi-gravity-assist mission?</p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Sub-Question 2</span>
+      <p>How robust are the learned policies to uncertainties like state noise, observation noise, control errors, and missed thrust events as quantified by Monte Carlo validation campaigns?</p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Sub-Question 3</span>
+      <p>Can a trained RL policy achieve fuel efficiency comparable to or better than traditional methods (indirect optimization, heuristic controllers) while delivering real-time inference in milliseconds?</p>
+    </div>
+
+    <p>
+      The third question is the most practically significant. Sutton and Barto describe RL policies as fundamentally different from traditional planners: once trained, they are just a single forward pass through a neural network, which would take milliseconds regardless of mission complexity. An indirect optimizer for a complex gravity-assist sequence might take hours or days. For a spacecraft already en route to Jupiter with communication delays of 35+ minutes, the difference between a 2-millisecond onboard decision and a 70-minute round-trip consultation with Earth could be the difference between mission success and failure.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 7: HYPOTHESIS -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> What I Believe I'll Find</h2>
+
+    <div class="hypo-panel">
+      <h3>— Hypothesis —</h3>
+      <p>
+        I believe that a PPO-trained policy, when given a well-designed reward function and integrated with a high-fidelity astrodynamics simulator (Basilisk), will successfully learn fuel-optimal guidance for at least simplified gravity-assist trajectories, and that this policy will generalize robustly to uncertain environments in a way that deterministic trajectories simply cannot.
+      </p>
+      <p>
+        Specifically, I expect the RL policy to trade a small amount of propellant efficiency (perhaps 1-5% worse than the theoretical optimum) in exchange for dramatically improved robustness, or the ability to correct mid-flight for sensor noise, thruster errors, and missed burns. This is precisely the tradeoff Zavoli and Federici observed: their robust policies used slightly more fuel in ideal conditions but maintained mission success rates above 70% in the presence of severe perturbations, while the deterministic policy failed entirely.
+      </p>
+      <p>
+        I also believe the architecture choice will matter. Gravity-assist trajectories have distinct mission phases (cruise, approach, flyby, post-flyby correction), and I suspect that architectures with memory like LSTMs may outperform simple feedforward networks by better representing the temporal structure of the trajectory. This remains an open question in the literature that I hope to shed some light on.
+      </p>
+    </div>
+
+    <p>
+      The deeper question I'm exploring is whether RL can connect theoretically optimal trajectories and practical real-time implementation. Traditional methods often produce trajectories that assume perfect knowledge and a perfectly performing spacecraft. The real universe is messier. Reinforcement learning, as Sutton and Barto describe it, is fundamentally a framework for decision-making under uncertainty. An RL agent learns a <em>policy</em>, which maps any possible situation to the best action in that situation. That is exactly what a spacecraft navigating an unpredictable deep-space environment needs.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 8: LOOKING AHEAD -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">08</span> Looking Ahead</h2>
+
+    <p>
+      Next week, I'll be shifting from theory to orbital mechanics. I'll be reading Schaub and Junkins on the analytical mechanics of space systems, and Sarli and Taheri on interplanetary gravity-assist trajectory optimization. I'll also be setting up my development environment, which means installing the Basilisk astrodynamics simulation framework from the University of Colorado Boulder and verifying that its Python API works as expected.
+    </p>
+
+    <p>
+      One thing that's been on my mind after this first week of reading: the Zavoli and Federici paper used a relatively simple 40-step mission model (Sims-Flanagan with 40 impulses) and still took 10-12 hours of training on a modern CPU. My project aims to incorporate more complex dynamics through Basilisk's higher-fidelity simulation environment. Managing computational cost is going to be a central challenge. I may need to explore techniques like parallelized environment simulation and curriculum learning to make training tractable.
+    </p>
+
+    <p>
+      I'm curious whether anyone reading this has experience with Basilisk specifically, or with
+      integrating high-fidelity astrodynamics simulators into RL training loops. The latency
+      per environment step is the critical bottleneck, and I'd love to hear how others have
+      approached this kind of simulation-in-the-loop RL problem.
+    </p>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 01 &nbsp;/&nbsp; MARCH 3, 2025<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <a href="/blog_2.html" class="next-badge">Next → Week 2: Orbital Mechanics</a>
+  </footer>
+
+</div><!-- /wrapper -->
+
+<!-- STAR FIELD SCRIPT -->
+<script>
+(function() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = document.body.scrollHeight || window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 5000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.3 + .2,
+        a: Math.random(),
+        speed: Math.random() * .003 + .001,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+    stars.forEach(s => {
+      const alpha = s.a * (0.5 + 0.5 * Math.sin(frame * s.speed + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 200, 255, ${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  function init() {
+    resize();
+    initStars();
+    draw();
+  }
+
+  window.addEventListener('resize', () => { resize(); initStars(); });
+  window.addEventListener('load', init);
+  init();
+})();
+</script>
+
+<!-- SCROLL REVEAL SCRIPT -->
+<script>
+(function() {
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+
+  revealEls.forEach(el => io.observe(el));
+})();
+</script>
+
+</body>
+</html>

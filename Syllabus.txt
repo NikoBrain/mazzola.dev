@@ -1,0 +1,24 @@
+Goals: First, I will develop a comprehensive understanding of the intersection between deep reinforcement learning and spacecraft trajectory optimization. I'll investigate how Proximal Policy Optimization (PPO) can enable autonomous fuel-optimal guidance for multi-planetary missions with gravity-assist maneuvers. Then, I'll implement and validate a complete reinforcement learning pipeline by developing a custom Gymnasium-compatible interface to an astrodynamics simulation framework, like Basilisk, training the policy on benchmark scenarios. By conducting extensive Monte Carlo validation campaigns, I'll evaluate how the agent preforms under realistic uncertainties. I'll end up with an agent that will be able to successfully navigate various missions under uncertainty.
+
+Texts: 1. Sutton, R. S., & Barto, A. G. (2018). Reinforcement Learning: An Introduction (2nd ed.). MIT Press.
+2. Schaub, H., & Junkins, J. L. (2014). Analytical Mechanics of Space Systems (3rd ed.). AIAA Education Series.
+3. Zavoli, A., & Federici, L. (2021). "Reinforcement Learning for Robust Trajectory Design of Interplanetary Missions." Journal of Guidance, Control, and Dynamics, 44(8), 1440-1453. https://doi.org/10.2514/1.G005794
+4. Sarli, B. V., & Taheri, E. (2020). "Interplanetary gravity-assist fuel-optimal trajectory optimization with planetary and Solar radiation pressure perturbations." Celestial Mechanics and Dynamical Astronomy, 132, 16. https://doi.org/10.1007/s10569-020-9955-8
+5. Kenneally, P. W., Piggott, S., & Schaub, H. (2020). "Basilisk: A Flexible, Scalable and Modular Astrodynamics Simulation Framework." Journal of Aerospace Information Systems, 17(9), 496-507. https://doi.org/10.2514/1.I010762
+6. Warner, J. E., et al. (2021). "Multi-Model Monte Carlo Estimators for Trajectory Simulation." AIAA Scitech Forum. https://doi.org/10.2514/6.2021-0761
+7. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). "Proximal Policy Optimization Algorithms." arXiv preprint arXiv:1707.06347
+
+Schedule: Week 1: Reading on RL, like Sutton & Barto, Zavoli & Federici, and Schulman et al.
+Week 2: Continue reading, and if done move on to orbital mechanics, like Schaub & Junkins, and Sarli & Taheri. Study Monte Carlo.
+Week 3: Finish reading and consolidate findings. Install and configure development environment, including Basilisk and Gymnasium. Create simple test scenarios to validate installation.
+Week 4: Design state space representation and action space. Create preliminary reward function and study how it shapes from literature. Figure out Markov Decision Process with justification and documentation. Start working on Gymnasium wrapper architecture.
+Week 5: Implement Basic Gymnasium environment class structure. Create initialization methods and state observation functions. Figure out Episode termination. Document environment.
+Week 6: Implement thrust command execution with Basilisk, Complete reward function implementation and create simplified mission scenario. Test wrapper with random policy and refine wrapper based on testing. Document wrapper.
+Week 7: Integrate PPO algorithm and configure training hyperparameters, beginning on simplified scenarios. Monitor metrics and identify instabilities. Document training process and preliminary results.
+Week 8: Analyze policy behavior and iterate on reward function based on it. Experiment with different neural network architectures and consider LSTM or attention mechanisms for temporal dependencies.
+Week 9: Implement more complex mission scenarios and consider multi-gravity assist trajectories if all is going well. Continue training with refined configurations and monitor performance metrics. Begin comparative analysis against baseline controllers.
+Week 10: Develop Monte Carlo simulation framework and implement uncertainty models. Design and run comprehensive validation campaigns, collecting and organizing validation data. Begin work on presentation.
+Week 11: Compare RL policies against baseline controllers based on fuel efficiency, robustness, and computational cost. Create visualizations and comparison tables and figures to be used in presentation.
+Week 12: Finalize code documentation for open-source release. Finalize and prepare for presentation. Revise all code.
+
+Description: A fully documented, open-source codebase hosted on GitHub containing a custom Gymnasium-compatible wrapper for the simulation framework, a PPO training pipeline, trained policy network, a Monte Carlo framework, and visualization tools.

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 4: First Contact — Senior Project Blog</title>
+  <meta name="blog-title" content="First Contact">
+  <meta name="blog-date" content="March 24, 2025">
+  <meta name="blog-week" content="Week 4">
+  <meta name="blog-description" content="Building the initial codebase and passing the baseline tests. Still a long way from a successfull run, however.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 4 &nbsp;·&nbsp; March 24, 2025</div>
+    <h1 class="hero-title">First <em>Contact</em></h1>
+    <p class="hero-sub">
+      Building the initial codebase and passing the baseline tests. Still a long way from a successfull run, however.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:120px; --speed:8s;">
+      <div class="orbit-dot" style="--dot:#009911;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:190px; --speed:14s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> From Design to Code</h2>
+
+    <p>
+      Welcome back. For the past three weeks I have been reading and planning. However, this week I've begun building. I now have a running codebase with a Gymnasium environment wrapping Basilisk, a PPO training pipeline, a validation script, and ran a training run with 200,000 timesteps on a fixed LEO-to-GEO transfer. However, its trajectories are not quite right. This post covers the most significant design decisions I made building the environment. 
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">— Activity Log, Week 4 —</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/hohmann_env.py</div>
+          <div class="re-author">HohmannTransferEnv, Gymnasium wrapper for Basilisk 6-DOF simulation</div>
+        </div>
+        <div class="re-note">Core environment</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/env_config.py</div>
+          <div class="re-author">SpacecraftConfig, ThrusterConfig, OrbitConfig, EnvConfig dataclasses</div>
+        </div>
+        <div class="re-note">Centralised configuration</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/bsk_utils.py</div>
+          <div class="re-author">build_simulation(), get_cartesian_state(), safe_rv2elem()</div>
+        </div>
+        <div class="re-note">Basilisk integration layer</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_train.py &nbsp;/&nbsp; main_validate.py</div>
+          <div class="re-author">PPO training loop (SB3) and post-training evaluation with trajectory plots</div>
+        </div>
+        <div class="re-note">Entry points</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">tests/ (2 modules)</div>
+          <div class="re-author">test_env_basic.py, Gymnasium API contract; test_env_oracle.py, physics validation</div>
+        </div>
+        <div class="re-note">All passing</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Debug training run</div>
+          <div class="re-author">200k timesteps, fixed LEO→GEO orbit, single environment, seed 42</div>
+        </div>
+        <div class="re-note">First results</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> The MDP: State, Action, and a Design Choice Resolved</h2>
+
+    <p>
+      Blog 3 laid out the conceptual mapping from Basilisk to a Gymnasium environment. This week I locked in the concrete formulation. The three fundamental choices were what the agent observes, what it controls, and what Basilisk runs at per decision step.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Observation Space</h3>
+
+    <p>
+      Last week's open question was whether to observe Cartesian state or Keplerian elements. I chose both. The 16-dimensional observation combines normalised ECI position and velocity with the orbital elements most useful for interpreting orbit shape, specifically semi-major axis $a$, eccentricity $e$, and the angular elements encoded as sines and cosines to avoid branch-cut discontinuities. Everything is scaled to roughly $[-3, 3]$ for training stability.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># 16-dimensional normalised observation vector</span><br>
+      $$\mathbf{o} = \Bigl[\,\underbrace{\frac{\mathbf{r}}{r_s},\;\frac{\mathbf{v}}{v_c}}_{\text{ECI state}},\;\underbrace{\frac{a}{r_s},\;e,\;\sin\nu,\;\cos\nu,\;\sin\omega,\;\cos\omega}_{\text{orbit shape}},\;\underbrace{\frac{m}{m_0},\;\frac{k}{N}}_{\text{resources}},\;\underbrace{\frac{r_\text{tgt}}{r_s},\;e_\text{tgt}}_{\text{goal}}\,\Bigr]$$<br>
+      <span class="comment"># r_s = 7 x R_earth ≈ 44 590 km  (GEO ≈ 0.95, LEO ≈ 0.16 in normalised units)</span><br>
+      <span class="comment"># v_c = √(μ / r_target) ≈ 3.07 km/s at GEO</span><br>
+      <span class="comment"># k / N = step fraction — tells the agent how much time it has left</span>
+    </div>
+
+    <p>
+      Notice how I included the target SMA and eccentricity directly in the observation. Without them, the policy network can never know what orbit it is trying to reach, which means it cannot generalize to the randomised-orbit curriculum I plan to enable later. The agent needs to read its goal, not memorise it.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Action Space: Burn On-Times</h3>
+
+    <p>
+      I went with burn on-times rather than delta-v vectors. Last week's question was whether to have the agent command an abstract velocity change or a physical firing duration. I chose the latter for two reasons. First, it maps directly to Basilisk's <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">THRArrayOnTimeCmdMsg</code> with no additional controller layer. Second, every burn depletes the tank in a way that shows up in the $m/m_0$ observation term, and the agent is responsible for that tradeoff.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Action → burn duration → propellant consumed</span><br>
+      $$t_\text{burn} = \text{burn\_frac} \times 0.9 \times \Delta t_\text{step}$$<br>
+      <span class="comment"># 10% coast margin at end of every step for attitude to settle</span><br>
+      <span class="comment"># Δt_step = 1.5 x T_Hohmann / 40  (episode time / decision steps)</span><br>
+      <br>
+      $$\Delta m = m\!\left(1 - e^{-\Delta v / v_e}\right), \quad \Delta v = \frac{F \cdot t_\text{burn}}{m_0}, \quad v_e = I_{sp} \cdot g_0$$<br>
+      <span class="comment"># Tsiolkovsky, not linear dm = F·t/(Isp·g0). The linear approximation</span><br>
+      <span class="comment"># over-estimates propellant use by ~40-60% across a full Hohmann transfer</span>
+    </div>
+
+    <p>
+      Basilisk's <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">thrusterStateEffector</code> in this configuration does not feed propellant depletion back into the orbital integrator. The propagated mass stays fixed at the wet mass. I track fuel consumption analytically in Python and use it for observations and the reward. The error from this constant-mass assumption accumulates to under 5% in delta-v over a full Hohmann, which is acceptable for the current stage.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Decision Pace</h3>
+
+    <p>
+      Following Zavoli and Federici's discretisation, I use 40 fixed decision steps per episode. The episode length is set to $1.5 \times T_\text{Hohmann}$, giving the agent 50% more time than the ideal two-burn transfer requires. Each step therefore spans a substantial chunk of orbital time, roughly 400 seconds per step for the LEO-to-GEO problem. The agent is as a result making 40 coarse burn-or-coast decisions spread across the entire transfer window.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Inside the Wrapper</h2>
+
+    <p>
+      The two essential components were managing Basilisk's simulation lifecycle inside Gymnasium's reset-step loop, and handling the attitude settling period at the start of every episode.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Reset Problem</h3>
+
+    <p>
+      Basilisk has no checkpoint-restore mechanism, so very call to <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">reset()</code> constructs a new <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">SimBaseClass</code> from scratch, configures the spacecraft dynamics, thruster effector, navigation sensor, and attitude control modules, initialises the orbital state, and calls <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">InitializeSimulation()</code>. Memory leaks were a potential problem from doing this tens of thousands of times in a single Python session, but in practice the Python garbage collector handles the C++ resource cleanup correctly when the previous sim object is dereferenced.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># reset(), the core Basilisk lifecycle, every episode</span>
+  <br>
+  self._bsk = build_simulation(sc_cfg, thr_cfg, r_init, v_init, sim_dt_s=2.0)
+  <br>
+  <span class="comment"># Coast 600 s: attitude controller converges to prograde before first burn</span>
+  <br>
+  scSim.ConfigureStopTime(sec2nano(600))
+  <br>
+  scSim.ExecuteSimulation()
+  <br>
+  <br>
+  <span class="comment"># step(), one decision step</span>
+  <br>
+  thrOnTimeMsg.write(OnTimeRequest=[t_burn_s], time=sim_time_ns)
+  <br>
+  scSim.ConfigureStopTime(sim_time_ns + sec2nano(dt_step))
+  <br>
+  scSim.ExecuteSimulation()
+  <br>
+  r_vec, v_vec = get_cartesian_state(bsk)
+  <br>
+  oe = orbitalMotion.rv2elem(MU_EARTH, r_vec, v_vec)
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Attitude Settling Coast</h3>
+
+    <p>
+      This was the detail I had not fully appreciated until I ran the first episode without it. The <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">velocityPoint</code> guidance law slews the spacecraft to align the thruster with the prograde direction, and the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">mrpFeedback</code> controller closes the attitude loop with a settling time on the order of several hundred seconds. On an equatorial orbit, the initial attitude misalignment from the identity MRP can be close to 90 degrees. If the agent fires the thruster immediately at step zero, the burn is nearly perpendicular to the velocity vector and the orbit degrades rather than rises. The reference <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">scenarioOrbitManeuverTH</code> handled this with an explicit pre-burn coast; I replicated it with a fixed 600-second settling period before the first observation is returned. Although the agent never sees this coast, the physics depends on it.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">In-Process vs. Out-of-Process Resolved</span>
+      <p>
+        I went with in-process. The latency per <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">step()</code> is dominated by the Basilisk integrator itself, not inter-process communication overhead, so there was nothing to gain from a separate process. The main risk of memory accumulation across thousands of episode resets did not materialise in practice.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Tests: All Green</h2>
+
+    <p>
+      Before running any training I wrote two test modules and used Gymnasium's built-in environment checker to catch API violations.
+    </p>
+
+    <p>
+      <strong>test_env_basic.py</strong> verifies the Gymnasium contract: observations returned by <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">reset()</code> and <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">step()</code> must lie within the declared <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">observation_space</code> bounds at every step, including degenerate states near the termination conditions. I added clipping as the final operation in <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">_get_obs()</code> to handle edge cases where orbital elements go singular near perfectly circular orbits.
+    </p>
+
+    <p>
+      <strong>test_env_oracle.py</strong> runs a hardcoded burn sequence designed to approximate the optimal Hohmann transfer with full burn fraction at perigee, coast through the transfer ellipse, and a second burn at apogee to circularise. It checks that the oracle agent reaches a final SMA within a reasonable fraction of the target without triggering any catastrophic termination. This is the physics validation test: if a hand-coded near-optimal agent cannot complete the transfer, the simulation is wrong.
+    </p>
+
+    <div class="formula-box">
+  pytest tests/ -v
+  <br>
+  <br>
+======== test session starts =======<br>
+<br>
+tests/test_env_basic.py::TestReset::test_reset_returns_valid_obs PASSED                                               [  5%]<br>
+tests/test_env_basic.py::TestReset::test_reset_twice_does_not_crash PASSED                                            [ 10%]<br>
+tests/test_env_basic.py::TestReset::test_reset_deterministic_with_seed PASSED                                         [ 15%]<br>
+tests/test_env_basic.py::TestReset::test_reset_info_contains_timing PASSED                                            [ 20%]<br>
+tests/test_env_basic.py::TestStep::test_step_zero_burn_does_not_crash PASSED                                          [ 25%]<br>
+tests/test_env_basic.py::TestStep::test_step_full_burn_does_not_crash PASSED                                          [ 30%]<br>
+tests/test_env_basic.py::TestStep::test_step_observation_in_bounds PASSED                                             [ 35%]<br>
+tests/test_env_basic.py::TestStep::test_step_reward_is_nonpositive_for_coast PASSED                                   [ 40%]<br>
+tests/test_env_basic.py::TestStep::test_step_reward_finite_for_burn PASSED                                            [ 45%]<br>
+tests/test_env_basic.py::TestStep::test_mass_decreases_after_burn PASSED                                              [ 50%]<br>
+tests/test_env_basic.py::TestStep::test_mass_unchanged_during_coast PASSED                                            [ 55%]<br>
+tests/test_env_basic.py::TestEpisodeFlow::test_episode_terminates_or_truncates PASSED                                 [ 60%]<br>
+tests/test_env_basic.py::TestEpisodeFlow::test_random_policy_survives_multiple_episodes PASSED                        [ 65%]<br>
+tests/test_env_basic.py::TestGymnasiumCompat::test_check_env PASSED                                                   [ 70%]<br>
+tests/test_env_basic.py::TestClose::test_close_is_idempotent PASSED                                                   [ 75%]<br>
+tests/test_env_basic.py::TestClose::test_reset_after_close_works PASSED                                               [ 80%]<br>
+tests/test_env_oracle.py::TestOraclePhysics::test_oracle_achieves_near_geo_orbit PASSED                               [ 85%]<br>
+tests/test_env_oracle.py::TestOraclePhysics::test_no_burn_orbit_unchanged PASSED                                      [ 90%]<br>
+tests/test_env_oracle.py::TestOraclePhysics::test_fuel_consumption_physically_reasonable PASSED                       [ 95%]<br>
+tests/test_env_oracle.py::TestOraclePrinting::test_print_oracle_episode_trace PASSED                                  [100%]<br>
+======= 20 passed, 332 warnings in 3.60s =======
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> The Debug Run: Erratic Rewards, Interesting Trajectories</h2>
+
+    <p>
+      With the environment passing all tests I ran the first training run: 200,000 timesteps, PPO with a 64x64 MLP, fixed orbit, single environment, seed 42. With a deliberately minimal configuration, I wanted a clean diagnostic signal before scaling up.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">200k</span>
+        <span class="stat-label">Training timesteps</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">40</span>
+        <span class="stat-label">Decision steps per episode</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">64x64</span>
+        <span class="stat-label">Shared actor-critic MLP</span>
+      </div>
+    </div>
+
+    <p>
+      Turns out, the reward curve ended up being erratic, bouncing up and down with no clear trend across the full run. The training did not diverge catastrophically, but it definitely did not converge. The evaluation results were more interesting. Running 20 episodes with the best checkpoint and plotting orbital SMA over each decision step gives this:
+    </p>
+
+    <img
+      src="/TOAST/runs/debug_run/best_model/trajectories.png"
+      alt="Evaluation trajectories: orbital SMA per decision step across 20 episodes"
+      style="width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      Evaluation trajectories over 20 episodes. The red dashed line is the target orbit. The bottom panel shows the thruster command at each step. Most episodes overshoot the target significantly; Ep8 misses by under 1%.
+    </p>
+
+    <p>
+      Every episode starts at LEO and every trajectory rises. The spacecraft is consistently firing prograde and climbing out of LEO. A random policy would produce flat or chaotic SMA traces, so something is being learned.
+    </p>
+
+    <p>
+      However, SMA errors range from under 10% to over 300%, with most episodes overshooting the target altitude by a wide margin. Episode 8 rises, levels off near the target, and circularises correctly. It is surrounded by episodes that sail past the target entirely, reaching two or three times the target SMA before the step budget expires.
+    </p>
+
+    <p>
+      In the bottom panel we see the thruster command sequence follows the same coarse pattern across every episode, where burn fraction starts near 1.0 and tapers gradually down to near zero by step 40. The agent has converged on a monotonically decreasing burn schedule rather than the two distinct on-off pulses that the Hohmann transfer actually requires. It is learning a heuristic that sometimes produces a good answer and usually overshoots.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">What the Optimal Policy Actually Looks Like</span>
+      <p>
+        A Hohmann transfer uses <em>two short impulsive burns</em>: a prograde burn at perigee to raise apogee to the target altitude, a coast through the transfer ellipse, and then a second prograde burn at apogee to circularise. The optimal command sequence is pulsed: burn, stop, coast for ~20 steps, burn, stop. The debug policy is a continuous taper: burn hard early, bleed off gradually. It has learned to go up, but not when to stop.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> Diagnosing the Reward Function</h2>
+
+    <p>
+      The trajectories show that the reward function never penalizes overshooting. To see why, we look at the SMA progress term:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Current per-step SMA reward (potential-based shaping)</span><br>
+      $$r_\text{SMA} = \frac{a_k - a_{k-1}}{a_\text{target} - a_\text{init}} \times 50$$<br>
+      <span class="comment"># This gives positive reward whenever a increases,</span><br>
+      <span class="comment"># regardless of whether a is already above a_target.</span>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">What Needs to Change</span>
+      <p>
+        The SMA progress term needs to reward <em>proximity to the target</em>, not just upward movement. A potential based on signed distance in $(a, e)$ space, something like $\Phi(s) \propto -|a - a_\text{target}| / a_\text{target}$, would penalize overshooting and undershooting symmetrically. The terminal success bonus needs to come down to the same order of magnitude as the accumulated per-step signal, so the agent is not navigating in the dark between episode boundaries. And the eccentricity shaping should only be valuable near the right altitude, not universally.
+      </p>
+    </div>
+
+    <p>
+      Getting reward shaping right on a sparse, delayed-outcome problem is notoriously difficult, and a first-pass reward function almost never works. The good news is that the environment is correct, the physics is correct, and the policy is learning. Because of Episode 8's near-perfect trajectory, I now know the task is solvable with this setup.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>— The Erratic Reward Curve Explained —</h3>
+      <p>
+        Episodes that happen to time out near the target altitude receive the massive +200 terminal bonus, spiking the curve upward, episodes that miss receive only per-step shaping, landing near zero, and the occasional crashes add a -50 dip. The critic cannot learn accurate value estimates under this level of variance, so I lose the advantage estimates that PPO's clipped objective trains on. Even with $\varepsilon = 0.2$ limiting per-update policy change, a noisy advantage signal means noisy gradient updates, which is visible in the policy's instability.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> Looking Ahead</h2>
+
+    <p>
+      Next week will start off on the reward function. I am not going to scale up to more timesteps or parallel environments until the reward curve shows a cleanly improving trend on this fixed, deterministic problem.
+    </p>
+
+    <p>
+      The specific changes I plan to try include replacing the one-sided SMA progress term with a distance-to-target potential that penalizes overshoot symmetrically with undershoot, rebalancing the terminal bonus to be proportional to the per-step reward scale, and possibly tying the eccentricity shaping weight to proximity to the target altitude so the agent is only rewarded for circularising in the right place. I also want to look at the value function loss in TensorBoard more carefully. If the critic is not learning an accurate value estimate, which seems likely given the variance, the advantage estimates will be garbage regardless of how well the actor is searching.
+    </p>
+
+    <p>
+      One thing that keeps sticking with me is that despite the chaos in the reward curve, the EvalCallback managed to find a checkpoint that produced Episode 8, which was a near-perfect Hohmann transfer with under 10% SMA error. That means the task is tractable with this exact environment and this exact policy architecture. Something in the reward signal, however noisy, was enough to push the policy toward the right answer at least once.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 04 &nbsp;/&nbsp; MARCH 24, 2025<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 5: Fixing the Reward Signal</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+
+</body>
+</html>

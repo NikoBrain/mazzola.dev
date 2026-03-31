@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mazzola.dev</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="home-wrapper">
+
+  <div class="orbit-container" style="height:220px; margin:0 auto 3rem;">
+    <!-- Circumbinary planet -->
+    <div class="orbit-ring" style="--size:200px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#4a9eff;"></div>
+    </div>
+    <!-- Binary star orbit: two stars locked 180° apart -->
+    <div class="orbit-ring" style="--size:60px; --speed:4s;">
+      <div class="orbit-dot" style="--dot:#fff7c0; --dot-size:20px; box-shadow:0 0 20px #fff7c0, 0 0 40px rgba(255,247,192,.3);"></div>
+      <div class="orbit-dot" style="--dot:#f0a040; --dot-size:12px; top:100%; box-shadow:0 0 14px #f0a040, 0 0 30px rgba(240,160,64,.3);"></div>
+    </div>
+  </div>
+
+  <span class="home-badge">&#9681; Under Construction</span>
+
+  <h1 class="home-title">mazzola<span class="dot">.</span>dev</h1>
+
+  <p class="home-sub">
+    This site is still being assembled. Think of it as a spacecraft in the integration bay.
+    Systems are coming online one module at a time.
+  </p>
+  <p class="home-construction">// launching soon&hellip;</p>
+
+  <div class="home-links">
+    <a href="/blog.html" class="home-link primary">&#9656; Senior Project Blog</a>
+  </div>
+
+</div>
+
+<!-- STAR FIELD SCRIPT -->
+<script>
+(function() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = Math.max(document.body.scrollHeight, window.innerHeight);
+  }
+
+  function initStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 4000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.3 + .2,
+        a: Math.random(),
+        speed: Math.random() * .003 + .001,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+    stars.forEach(s => {
+      const alpha = s.a * (0.5 + 0.5 * Math.sin(frame * s.speed + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 200, 255, ${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  function init() { resize(); initStars(); draw(); }
+  window.addEventListener('resize', () => { resize(); initStars(); });
+  window.addEventListener('load', init);
+  init();
+})();
+</script>
+
+</body>
+</html>

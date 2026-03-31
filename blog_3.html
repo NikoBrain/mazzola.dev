@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 3: Inside the Engine — Senior Project Blog</title>
+  <meta name="blog-date" content="March 17, 2025">
+  <meta name="blog-week" content="Week 3">
+  <meta name="blog-description" content="Understanding Basilisk from the source and running the first real thruster simulations to understand the building blocks that will become my RL training environment.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 3 &nbsp;·&nbsp; March 17, 2025</div>
+    <h1 class="hero-title">Inside the <em>Engine</em></h1>
+    <p class="hero-sub">
+      Understanding Basilisk from the source and running the first real thruster simulations to understand the building blocks that will become my RL training environment.
+    </p>
+  </header>
+  <!-- ORBIT ANIMATION -->
+  <div class="orbit-container reveal">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:120px; --speed:8s;">
+      <div class="orbit-dot" style="--dot:#009911;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:190px; --speed:14s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> From Pages to Python</h2>
+
+    <p>
+      The first two weeks of this project were almost entirely about absorbing the theory of reinforcement learning and mastering the orbital mechanics. This week, the balance finally shifted. With the core literature reviewed and consolidated, I installed the Basilisk astrodynamics simulation framework and ran the first real thruster-based simulations.
+    </p>
+    <p>
+      This post is longer and more technical than the previous two, because what I worked through this week is dense. To understand how I'll take advantage of Basilisk's design I needed to read the example scripts alongside the architecture principles to understand how the pieces connect. I am going to walk through exactly what I found, because the choices I make in the next week when I start designing my Gymnasium wrapper will be direct consequences of this week's understanding.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">— Activity Log, Week 3 —</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Basilisk: Fundamentals of Simulations</div>
+          <div class="re-author">AVS Lab — bskPrinciples series (What is BSK, Process/Task/Module, Messaging)</div>
+        </div>
+        <div class="re-note">Architecture foundation</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scenarioOrbitManeuverTH</div>
+          <div class="re-author">Schwend, 2024 — Thrusted Hohmann Transfer w/ thrusterStateEffector</div>
+        </div>
+        <div class="re-note">Primary thruster example</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scenarioPatchedConics</div>
+          <div class="re-author">AVS Lab — Earth → Jupiter multi-body transfer with SOI switching</div>
+        </div>
+        <div class="re-note">Multi-body / interplanetary</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scenarioJupiterArrival</div>
+          <div class="re-author">AVS Lab — Hyperbolic arrival orbit with capture burn</div>
+        </div>
+        <div class="re-note">Hyperbolic dynamics</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scenarioMonteCarloAttRW</div>
+          <div class="re-author">AVS Lab — MC Controller, dispersions, retention policy</div>
+        </div>
+        <div class="re-note">Validation framework</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> What Basilisk Actually Is</h2>
+
+    <p>
+      The AVS Lab at the University of Colorado Boulder describes Basilisk as a software <em>framework</em>, not a program. The distinction matters because Basilisk by itself does not simulate anything. Instead, it provides the building blocks from which spacecraft simulations are assembled. The documentation uses a Lego analogy that I think is exactly right: each module is a self-contained brick, and the user's job is to stack and connect them into the spacecraft behavior they need. The modules encapsulate the physics and algorithms; the user wires them together through a message-passing interface and never needs to understand the math inside each module to use it correctly.
+    </p>
+
+    <a href="https://avslab.github.io/basilisk/_images/qs-bsk-0.svg" target="_blank">
+      <img
+        src="https://avslab.github.io/basilisk/_images/qs-bsk-0.svg"
+        alt="Basilisk module messaging diagram"
+        style="filter:invert(1);width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin:1.5rem 0;"
+      />
+    </a>
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      The Basilisk module interface: output messages from one module feed into input messages of the next. Connecting these messages is how a spacecraft simulation is assembled.
+    </p>
+
+    <p>
+      The execution model is built around three concepts: <strong>Processes</strong>, <strong>Tasks</strong>, and <strong>Modules</strong>. A <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">SimBaseClass</code> container holds one or more processes, each of which owns one or more tasks, and each task holds a list of modules that are called in order at a specified time step. Every simulation starts the same way:
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># The invariant setup pattern in every Basilisk script</span>
+  <br>
+  scSim  = SimulationBaseClass.SimBaseClass()
+  <br>
+  dynProcess = scSim.CreateNewProcess("simProcess")
+  <br>
+  dynProcess.addTask(scSim.CreateNewTask("simTask", macros.sec2nano(2.0)))
+  <br>
+  <span class="comment"># All modules are then added to this task</span>
+  <br>
+  scSim.AddModelToTask("simTask", scObject)     <span class="comment"># spacecraft dynamics</span>
+  <br>
+  scSim.AddModelToTask("simTask", thrusterSet)  <span class="comment"># thruster effector</span>
+  <br>
+  scSim.AddModelToTask("simTask", sNavObject)   <span class="comment"># navigation sensor</span>
+  <br>
+  scSim.AddModelToTask("simTask", attGuidance)  <span class="comment"># guidance law</span>
+  <br>
+  scSim.AddModelToTask("simTask", mrpControl)   <span class="comment"># feedback controller</span>
+    </div>
+
+    <p>
+      The time step, which is 2 seconds in the example above, is specified in nanoseconds using the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">macros.sec2nano()</code> utility. Everything in Basilisk's internal clock runs in nanoseconds, which initially felt unusual, but it turns out it eliminates floating-point precision issues that would accumulate over multi-day mission simulations.
+    </p>
+
+    <p>
+      The modules communicate exclusively through typed messages. A module declares one or more output messages, which other modules subscribe to via their input message connections. There is no shared global state and information only flows through explicitly declared message subscriptions. This matters enormously for my project, because when I wrap Basilisk inside a Gymnasium environment, the "observation" that the RL agent receives will be exactly the output of the <strong>simpleNav</strong> navigation module, and the "action" it outputs will be written directly into the <strong>THRArrayOnTimeCmdMsg</strong> thruster command message. The message architecture is, conveniently, already the interface I need.
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">Architecture Insight</span>
+      <p>
+        Basilisk's message-passing design has the same form as the MDP formulation I will use. The <code style="font-family:'Space Mono',monospace; font-size:.85em;">simpleNav</code> output message is the <em>observation</em>. The <code style="font-family:'Space Mono',monospace; font-size:.85em;">THRArrayOnTimeCmdMsg</code> is the <em>action</em>. The simulation stepping from one timestep to the next is the <em>transition function</em>. Building the Gymnasium wrapper will largely consist of wrapping these existing interfaces rather than reimplementing them.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> The Thruster Example, Taken Apart</h2>
+
+    <p>
+      The most important script I worked through this week was <strong>scenarioOrbitManeuverTH</strong>, which simulates a full Hohmann transfer from Low Earth Orbit to Geostationary Orbit using finite thruster burns rather than the instantaneous impulsive delta-v used in earlier simpler examples. This distinction is critical for my project. Prior Basilisk orbit maneuver examples like <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">scenarioOrbitManeuver</code> just add a velocity vector to the spacecraft state at a specific instant, which is convenient but physically unrealistic. For RL-based control, I need the spacecraft to actually fire a thruster for a computed duration, consuming propellant, building up velocity through a force that acts over time, and with an attitude controller that keeps the spacecraft pointed in the correct burn direction throughout. This example does all of that.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">3000 N</span>
+        <span class="stat-label">Thruster 1 — GTO departure burn (perigee)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">420 N</span>
+        <span class="stat-label">Thruster 2 — circularization burn (apogee)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">318 s</span>
+        <span class="stat-label">Specific impulse (I<sub>sp</sub>) for both thrusters</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">RKF45</span>
+        <span class="stat-label">Variable-step integrator used for the finite burns</span>
+      </div>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.25rem; color:var(--bright); margin: 2rem 0 .8rem;">The thrusterStateEffector Module</h3>
+
+    <p>
+      The thruster is modeled via the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">thrusterStateEffector</code> module, which is the physically correct approach for finite burns. Unlike a simple force vector added externally, the state effector formulation properly couples the thruster dynamics to the spacecraft's equations of motion. The mass changes as propellant is consumed, and this is tracked self-consistently through the integration. Each thruster is defined via the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">simIncludeThruster.thrusterFactory()</code> utility, which takes a thruster model type, its location in the body frame, its pointing direction, and parameters including maximum thrust, nozzle area, and specific impulse:
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># Create the thruster factory and define two thrusters</span>
+  <br>
+  thFactory = simIncludeThruster.thrusterFactory()
+  <br>
+  <br>
+  <span class="comment"># Departure burn thruster: 3000 N, high thrust for GTO insertion</span>
+  <br>
+  thFactory.create('Blank_Thruster', [0,0,1], [0,0,1],
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cutoffFrequency=.1,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">MaxThrust</span>=<span class="val">3000.0</span>,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;areaNozzle=0.046759,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">steadyIsp</span>=<span class="val">318.0</span>)
+  <br>
+  <br>
+  <span class="comment"># Circularization thruster: 420 N, lower thrust for GEO insertion</span>
+  <br>
+  thFactory.create('Blank_Thruster', [0,0,1], [0,0,1],
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cutoffFrequency=.1,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">MaxThrust</span>=<span class="val">420.0</span>,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;areaNozzle=0.046759,
+  <br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">steadyIsp</span>=<span class="val">318.0</span>)
+  <br>
+  <br>
+  <span class="comment"># Attach to spacecraft so the thruster set is now a mass-varying state effector</span>
+  <br>
+  thFactory.addToSpacecraft("GTOThrusterDynamics", thrusterSet, scObject)
+    </div>
+
+    <p>
+      The thruster is commanded through the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">THRArrayOnTimeCmdMsg</code> message, which specifies how long each thruster in the array should fire. The burn duration is calculated analytically before each phase under a constant-mass assumption, which is standard practice for rough planning when the propellant fraction is small:
+    </p>
+
+    <!-- Burn time equations -->
+    <div class="formula-box">
+  <span class="comment"># Burn time under constant-mass approximation</span>
+  <br>
+  $$t_{\text{burn}} = \frac{\Delta v \cdot M_{\text{sc}}}{F_{\text{thrust}}}$$
+  <span class="comment"># From the script: first burn calculation</span>
+  <br>
+  dv0 = v0p - v0                 <span class="comment"># required delta-v at perigee</span>
+  <br>
+  t0Burn = dv0 / (3000.0 / scObject.hub.mHub)   <span class="comment"># burn duration (seconds)</span>
+  <br>
+  <br>
+  <span class="comment"># Write the on-time message: [thruster_1_time, thruster_2_time]</span>
+  <br>
+  ThrOnTimeMsgData.OnTimeRequest = [t0Burn, 0]
+  <br>
+  thrOnTimeMsg.write(ThrOnTimeMsgData, time=simulationTime)
+    </div>
+
+    <p>
+      This constant-mass approximation becomes less accurate as the propellant fraction increases. For the deep-space missions I am targeting, where propellant mass can be a large fraction of total spacecraft mass, I will eventually need to use a proper finite-burn propagation that accounts for continuously changing mass through the rocket equation. Basilisk's <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">thrusterStateEffector</code> already does this integration internally and the approximation is only used here to <em>estimate</em> how long to command the burn. The simulation itself correctly propagates the mass change.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.25rem; color:var(--bright); margin: 2rem 0 .8rem;">Attitude Control During the Burn</h3>
+
+    <p>
+      A spacecraft cannot just fire a thruster in an arbitrary direction and it has to be pointed correctly first. This example uses a full attitude control loop to keep the spacecraft aligned with the velocity vector throughout the burn, which is the correct direction for a Hohmann transfer. Five modules work together to make this happen, and understanding each of them is essential because I will need an equivalent attitude-keeping loop in my RL environment to make the commanded thrust go in the right direction.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># The full attitude control chain:</span>
+  <br>
+  <span class="comment"># 1. velocityPoint: computes the required attitude (reference frame aligned with velocity)</span>
+  <br>
+  attGuidance = velocityPoint.velocityPoint()
+  <br>
+  attGuidance.transNavInMsg.subscribeTo(sNavObject.transOutMsg)
+  <br>
+  attGuidance.mu = mu
+  <br>
+  <br>
+  <span class="comment"># 2. simpleNav: reads the true spacecraft state and outputs a "sensed" state</span>
+  <br>
+  <span class="comment">#    This is the observation function for the RL agent</span>
+  <br>
+  sNavObject = simpleNav.SimpleNav()
+  <br>
+  sNavObject.scStateInMsg.subscribeTo(scObject.scStateOutMsg)
+  <br>
+  <br>
+  <span class="comment"># 3. attTrackingError: computes MRP error between commanded and current attitude</span>
+  <br>
+  attError = attTrackingError.attTrackingError()
+  <br>
+  attError.attRefInMsg.subscribeTo(attGuidance.attRefOutMsg)
+  <br>
+  attError.attNavInMsg.subscribeTo(sNavObject.attOutMsg)
+  <br>
+  <br>
+  <span class="comment"># 4. mrpFeedback: PD controller on MRP attitude error gives the torque command</span>
+  <br>
+  mrpControl = mrpFeedback.mrpFeedback()
+  <br>
+  mrpControl.guidInMsg.subscribeTo(attError.attGuidOutMsg)
+  <br>
+  mrpControl.K = 3.5   <span class="comment"># proportional gain</span>
+  <br>
+  mrpControl.P = 30.0  <span class="comment"># derivative gain</span>
+  <br>
+  <br>
+  <span class="comment"># 5. extForceTorque: applies the commanded torque to the spacecraft</span>
+  <br>
+  extFTObject.cmdTorqueInMsg.subscribeTo(mrpControl.cmdTorqueOutMsg)
+    </div>
+
+    <p>
+      The <strong>velocityPoint</strong> module deserves special attention here. It takes the spacecraft's translational navigation state and computes a reference attitude that aligns the spacecraft with the orbit velocity frame. For my RL environment, I will need an equivalent velocity-pointing capability for thrust maneuvers. The attitude control loop runs inside Basilisk; the RL policy only needs to specify <em>when</em> and <em>for how long</em> to fire the thrusters, not <em>how</em> to orient itself during the burn.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label" style="color:var(--gold);">Key Design Decision for the RL Wrapper</span>
+      <p>
+        The thruster command interface in Basilisk is <code style="font-family:'Space Mono',monospace; font-size:.85em;">THRArrayOnTimeCmdMsg</code>, which is a vector of on-times for each thruster. The RL agent's <em>action</em> will be exactly this: an array of burn durations, one per thruster, at each decision step. This is a bounded continuous action space, where zero means no burn and the maximum is physically constrained by the available propellant and the orbital maneuver constraints. This maps cleanly onto PPO's Gaussian policy head for continuous control.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.25rem; color:var(--bright); margin: 2rem 0 .8rem;">The Variable-Timestep Integrator</h3>
+
+    <p>
+      One subtle but important choice in the example is the use of the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">svIntegratorRKF45</code> integrator rather than the default fixed-step RK4. The RKF45 (Runge-Kutta-Fehlberg 4th/5th order) is a variable-step integrator that adapts its step size to maintain a target local truncation error. During the coast phases, where dynamics are smooth, it can take large steps. During and immediately after a burn, when the thrust is changing the trajectory rapidly, it automatically tightens the step size to maintain accuracy.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># Set the RKF45 integrator which is critical for accurate finite burn propagation</span>
+  <br>
+  integratorObject = svIntegrators.svIntegratorRKF45(scObject)
+  <br>
+  scObject.setIntegrator(integratorObject)
+  <br>
+  <span class="comment"># The integrator adapts its internal step size to maintain accuracy</span>
+  <br>
+  <span class="comment"># during burn transients, while using large steps during coast arcs.</span>
+  <br>
+  <span class="comment"># This is important when thruster on-time durations are much shorter</span>
+  <br>
+  <span class="comment"># than the orbital period (as they are for finite deep-space burns).</span>
+    </div>
+
+    <p>
+      For deep-space missions with long coast arcs interspersed with short burns, this variable-step capability is necessary for getting numerically accurate results without prohibitive computational cost. I had already flagged computational efficiency as a major challenge and the RKF45 integrator is one of Basilisk's tools for managing this tradeoff.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.25rem; color:var(--bright); margin: 2rem 0 .8rem;">State Recovery: rv2elem and elem2rv</h3>
+
+    <p>
+      The <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion</code> utility module provides the classical orbit element conversions I studied from Schaub and Junkins last week. The two most important functions are <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion.rv2elem(mu, r, v)</code> and its inverse <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion.elem2rv(mu, oe)</code>. In the example, <code style="font-family:'Space Mono',monospace; font-size:.85em;">rv2elem</code> is called after the first burn to compute the current orbital elements and then find the time to apogee, where the second burn will occur. This is a direct illustration of the state representation question I raised last week: the simulation propagates in Cartesian coordinates, but physically meaningful decisions (like "when is apogee?") require the orbital element representation.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># After the first burn, recover orbital elements from the Cartesian state</span>
+  <br>
+  rVt = unitTestSupport.EigenVector3d2np(posRef.getState())
+  <br>
+  vVt = unitTestSupport.EigenVector3d2np(velRef.getState())
+  <br>
+  <br>
+  oe1 = orbitalMotion.rv2elem(mu, rVt, vVt)
+  <br>
+  <br>
+  <span class="comment"># Use eccentric anomaly to find the remaining time to apogee</span>
+  <br>
+  E1 = 2*np.arctan(np.sqrt((1-oe1.e)/(1+oe1.e)) * np.tan(oe1.f/2))
+  <br>
+  T3Full = np.pi / np.sqrt(mu / oe1.a**3)
+  <br>
+  T3P    = np.sqrt(oe1.a**3 / mu) * (E1 - oe1.e*np.sin(E1))
+  <br>
+  T3     = macros.sec2nano(T3Full - T3P)  <span class="comment"># coast time to apogee</span>
+    </div>
+
+    <p>
+      The RL agent will need access to this conversion. When constructing the observation vector for the policy network, I plan to augment the raw Cartesian state with the derived orbital elements, as I discussed last week. The <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion</code> module makes this straightforward because with every step, after calling <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">scSim.ExecuteSimulation()</code>, I can call <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">rv2elem</code> on the current state and append the elements to the observation.
+    </p>
+
+    <a href="https://avslab.github.io/basilisk/_images/scenarioOrbitManeuverTH2.svg" target="_blank">
+      <img
+        src="https://avslab.github.io/basilisk/_images/scenarioOrbitManeuverTH2.svg"
+        alt="Orbital radius during Hohmann transfer with finite burns"
+        style="filter:invert(1);width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin:1.5rem 0;"
+      />
+    </a>
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      The orbital radius during the Hohmann transfer in scenarioOrbitManeuverTH. The initial flat region at ~7,000 km is LEO; the two burns are visible as the upward ramp during the transfer ellipse; the final plateau near GEO (~42,000 km) is the circularized target orbit.
+    </p>
+  </section>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Multi-Body Trajectories and Hyperbolic Arrivals</h2>
+
+    <p>
+      The thruster example gave me confidence in the core simulation loop, but my project requires more than Earth-orbiting maneuvers. I spent the second half of the week studying two examples that directly address the interplanetary and multi-body dynamics I will need: <strong>scenarioPatchedConics</strong> and <strong>scenarioJupiterArrival</strong>.
+    </p>
+
+    <p>
+      The <strong>scenarioPatchedConics</strong> example is particularly instructive because it is the closest existing Basilisk scenario to my eventual problem. It simulates a full Earth-to-Jupiter transfer, beginning with a hyperbolic departure from LEO, proceeding through a heliocentric Hohmann transfer ellipse, and arriving at a Jupiter flyby, all in one continuous simulation. Critically, it does this by running Basilisk's N-body integrator throughout, with Earth, Sun, and Jupiter all contributing to the gravitational acceleration simultaneously. The patched-conics model is used only to design the initial trajectory; the simulation propagates the actual dynamics with all bodies included from the start.
+    </p>
+
+    <p>
+      Basilisk always propagates the state in a single inertial frame, but the user changes which body is designated the <em>central body</em> for logging purposes as the spacecraft transitions between gravitational regimes. Early in the simulation, position and velocity are logged relative to Earth. After crossing the Earth's sphere of influence, the central body is switched to the Sun for the heliocentric transfer phase. As the spacecraft approaches Jupiter, the central body switches again. The code manages this by stopping the simulation, adjusting the spacecraft's state vector to account for the offset between reference frames, and restarting with a new logging frame.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># scenarioPatchedConics: frame switching at the Earth SOI boundary</span>
+  <br>
+  <span class="comment"># All three bodies are always contributing gravitational acceleration</span>
+  <br>
+  <span class="comment"># This is not patched conics in the dynamical sense, only in the initial</span>
+  <br>
+  <span class="comment"># design sense. The simulation integrates the full N-body problem.</span>
+  <br>
+  gravFactory = simIncludeGravBody.gravBodyFactory()
+  <br>
+  earth = gravFactory.createEarth()
+  <br>
+  sun   = gravFactory.createSun()
+  <br>
+  earth.isCentralBody = True  <span class="comment"># initial reference which switches to Sun after SOI exit</span>
+  <br>
+  <br>
+  <span class="comment"># After crossing the Earth SOI, switch the central body for logging</span>
+  <br>
+  sun.isCentralBody  = True
+  <br>
+  earth.isCentralBody = False
+  <br>
+  <br>
+  <span class="comment"># Adjust spacecraft state to Sun-centered coordinates</span>
+  <br>
+  <span class="comment"># (add Earth's heliocentric velocity to the spacecraft's geocentric velocity)</span>
+    </div>
+
+    <p>
+      The standard approach of always using heliocentric inertial coordinates for the state vector, and only switching to planetocentric coordinates for reward computation near flyby bodies, seems to be what Basilisk supports naturally. The message logged by <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">simpleNav</code> always reports state relative to the current central body, so I will need to be careful about which body is designated central at each phase when reading out the observation for the RL agent.
+    </p>
+
+    <p>
+      The <strong>scenarioJupiterArrival</strong> example covers a hyperbolic capture maneuver. The spacecraft arrives on a hyperbolic approach trajectory, propagates to periapsis, and then fires an impulsive delta-v burn to slow down into a circular parking orbit. This example demonstrated concretely how Basilisk handles hyperbolic orbits. The state initialization uses the same orbital element structure (<code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion.ClassicElements()</code>), with a negative semi-major axis indicating the hyperbolic conic. The simulation time for the first phase (initial position to periapsis) is computed from the hyperbolic time equation:
+    </p>
+
+    $$
+      N = \sqrt{\frac{\mu}{(-a)^3}}\,(t - t_p) = e\tan\zeta - \ln\!\left[\tan\!\left(\frac{\zeta}{2} + \frac{\pi}{4}\right)\right]
+    $$
+
+    <p>
+      where $\zeta = \cos^{-1}\!\left(\frac{ea}{a-r}\right)$ is the hyperbolic anomaly analog to the eccentric anomaly on an ellipse. The <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">orbitalMotion</code> module handles these conversions, so I do not need to implement the hyperbolic time equation myself, but understanding it is essential for computing meaningful observation features (like "time to periapsis") for the RL agent during a flyby approach.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">What the Examples Tell Me About Thruster Use</span>
+      <p>
+        Neither scenarioPatchedConics nor scenarioJupiterArrival uses thrusters. Instead, they use impulsive delta-v. For interplanetary burns, the delta-v is first computed analytically (using vis-viva or the Lambert solver), and then a thruster burn of the appropriate duration replaces the instantaneous velocity change. The scenarioOrbitManeuverTH example demonstrates this translation pattern on an Earth orbit; I will need to generalize it to heliocentric and planetocentric frames across multiple mission phases.
+      </p>
+    </div>
+
+    <p>
+      There is also a dedicated <strong>scenarioFlybySpice</strong> example that uses real SPICE ephemeris kernels to drive the spacecraft through Venus, Earth, and Mars flybys with accurate planetary positions. This example additionally shows the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">velocityPoint</code> module being used to align the spacecraft with the velocity frame during flybys and is the exact same attitude guidance module that the thruster example uses during burns. For my project, this SPICE-driven approach becomes relevant once I need to simulate actual historical mission geometries for validation purposes, though I will start with simplified fixed-planet models to keep the first iteration manageable.
+    </p>
+  </section>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> The Monte Carlo Machinery</h2>
+
+    <p>
+      Monte Carlo validation is the primary means by which I will demonstrate that the trained RL policy is actually robust to realistic uncertainties, not just a policy that memorized a specific nominal trajectory. Basilisk has a built-in Monte Carlo framework, and studying it this week showed what kind of validation I should plan for.
+    </p>
+
+    <p>
+      The <strong>scenarioMonteCarloAttRW</strong> example demonstrates the complete MC setup. The entry point is the <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">Controller</code> class from <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">Basilisk.utilities.MonteCarlo</code>. The user specifies the number of runs, the random seeds, and the number of parallel threads. Then <em>dispersions</em>, or the statistical distributions over simulation parameters that will be sampled independently in each run, are defined:
+    </p>
+
+    <div class="formula-box">
+    <span class="comment"># Basilisk Monte Carlo setup (from scenarioMonteCarloAttRW)</span>
+    <br>
+    monteCarlo = Controller()
+    <br>
+    monteCarlo.setShowProgressBar(True)
+    <br>
+    monteCarlo.setSimulationFunction(myScenario)
+    <br>
+    monteCarlo.setExecutionCount(500)     <span class="comment"># 500 independent runs</span>
+    <br>
+    monteCarlo.setThreadCount(4)          <span class="comment"># parallel execution</span>
+    <br>
+    <br>
+    <span class="comment"># Define dispersions as each run samples from these independently</span>
+    <br>
+    <span class="comment"># For trajectory work I'll adapt these to spacecraft state/control uncertainties</span>
+    <br>
+    dispMass    = UniformDispersion("scSim.scObject.hub.mHub",  [712.5, 787.5])
+    <br>
+    dispInertia = NormalVectorCartDispersion("scSim.scObject.hub.IHubPntBc_B", ...)
+    <br>
+    <br>
+    <span class="comment"># A retention policy specifies which messages to log across runs</span>
+    <br>
+    retentionPolicy = RetentionPolicy()
+    <br>
+    retentionPolicy.addMessageLog(transNavOutMsgName, ["r_BN_N", "v_BN_N"])
+    <br>
+    monteCarlo.addRetentionPolicy(retentionPolicy)
+    <br>
+    <br>
+    <span class="comment"># Execute and collect. Failed jobs should be zero</span>
+    <br>
+    failures = monteCarlo.ExecuteSimulation()
+    </div>
+
+    <p>
+      For my trajectory optimization application, the dispersions I care about are directly analogous to those used in Zavoli and Federici (2021): initial state noise (position and velocity errors representing navigation uncertainty), control actuation errors (thrust magnitude and direction errors), and missed thrust events (a run where a planned burn partially or fully fails). The Basilisk MC framework can accommodate all of these through its dispersion API.
+    </p>
+
+    <p>
+      One important implementation note from the MC documentation: all simulation objects that will be varied between runs <em>must be attached as attributes of the simulation container</em> (<code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">scSim</code>). If a module is only stored in a local Python variable, the MC framework cannot find it to apply the dispersion. This is a subtle but critical requirement that I will need to respect when designing my Gymnasium wrapper. The wrapper class will need to store all Basilisk modules as attributes that the MC framework can reference.
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">Monte Carlo &amp; RL: Two Layers of Validation</span>
+      <p>
+        There will be two separate uses of Monte Carlo methods in my project. The first is during <em>training</em>: each RL training episode is itself a kind of Monte Carlo trial, where the environment is initialized with random perturbations so the policy learns to be robust. The second is during <em>validation</em>: after training is complete, I run a formal MC campaign with hundreds of fixed scenarios to measure policy performance statistics. Basilisk's built-in MC Controller is designed for the second use; the first will be handled by my Gymnasium wrapper's reset function, which will sample from the dispersion distributions each time a new episode begins.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> Mapping Basilisk to a Gymnasium Environment</h2>
+
+    <p>
+      Having now worked through Basilisk's architecture and the relevant examples in detail, I can state concretely what the Gymnasium wrapper needs to do. This is the central implementation task of next week, and it is worth being explicit about the design before writing any code.
+    </p>
+
+    <p>
+      A Gymnasium environment implements four methods: <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">reset()</code>, <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">step(action)</code>, <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">render()</code>, and a definition of the observation and action spaces. The mapping to Basilisk is as follows.
+    </p>
+
+    <div class="formula-box">
+  <span class="comment"># Conceptual mapping: Gymnasium ↔ Basilisk</span>
+  <br>
+  <span class="comment">## reset()</span>
+  <br>
+  <span class="comment">#   → create a new SimBaseClass</span>
+  <br>
+  <span class="comment">#   → configure spacecraft(), thrusterStateEffector(), simpleNav()</span>
+  <br>
+  <span class="comment">#   → initialize orbital elements with randomized dispersion</span>
+  <br>
+  <span class="comment">#   → call scSim.InitializeSimulation()</span>
+  <br>
+  <span class="comment">#   → return initial observation from sNavObject output messages</span>
+  <br>
+  <span class="comment">## step(action)</span>
+  <br>
+  <span class="comment">#   action = array of thruster on-times [t_thr0, t_thr1, ...]</span>
+  <br>
+  <span class="comment">#   → write action to THRArrayOnTimeCmdMsg</span>
+  <br>
+  <span class="comment">#   → call scSim.ConfigureStopTime(t_current + dt_step)</span>
+  <br>
+  <span class="comment">#   → call scSim.ExecuteSimulation()</span>
+  <br>
+  <span class="comment">#   → read simpleNav output messages → observation</span>
+  <br>
+  <span class="comment">#   → call orbitalMotion.rv2elem() → augment observation with orbital elements</span>
+  <br>
+  <span class="comment">#   → compute reward (fuel consumed, trajectory error, constraint violations)</span>
+  <br>
+  <span class="comment">#   → check termination condition (mission complete / fuel exhausted / lost)</span>
+  <br>
+  <span class="comment">#   → return (observation, reward, done, info)</span>
+  <br>
+  <span class="comment">## observation_space</span>
+  <br>
+  <span class="comment">#   → Box(low, high): [r_x, r_y, r_z, v_x, v_y, v_z, mass, a, e, i, Omega, omega, nu]</span>
+  <br>
+  <span class="comment">#                     positions in m, velocities in m/s, mass in kg, angles in radians</span>
+  <br>
+  <span class="comment">## action_space</span>
+  <br>
+  <span class="comment">#   → Box(low=0, high=max_on_time): one on-time per thruster</span>
+    </div>
+
+    <p>
+      The biggest open question is the granularity of the RL decision step. Each call to <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">step()</code> advances the simulation by some time interval <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">dt_step</code>. If this is set to 2 seconds (the integration timestep), the RL agent makes thousands of decisions per orbit. If it is set to 1 hour, the agent makes coarser decisions but the episode is tractable in terms of total timesteps. The Zavoli and Federici approach used 40 fixed decision points across the entire Earth-Mars transfer, which amounts to roughly one decision every 9 days. I will begin with a similar coarse discretization and refine based on training stability.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>— Design Question for Next Week —</h3>
+      <p>
+        Should the RL agent command a <em>burn on-time</em> (how long to fire this step) or a <em>delta-v vector</em> (what velocity change to achieve)? The first maps directly to the <code style="font-family:'Space Mono',monospace; font-size:.85em;">THRArrayOnTimeCmdMsg</code> interface and is physically grounded. The second is more abstract but may be easier for the policy to learn because it separates the propulsion physics from the trajectory planning. Basilisk's <strong>velocityPoint</strong> module plus a built-in thrust duration calculator could serve as a lower-level controller, letting the RL agent operate at the delta-v planning level rather than the raw actuator level. I need to decide which abstraction level to start with.
+      </p>
+      <p>
+        My current leaning is to start at the delta-v abstraction level to simplify early training, then verify that the Basilisk thruster simulation correctly executes those burns. Once I have evidence that the policy is learning something sensible, I can lower the abstraction level toward raw thruster commands as the problem complexity increases.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> Looking Ahead</h2>
+
+    <p>
+      The next two weeks are the most concrete implementation phase of the entire project. Week 4 is for finalizing the MDP formulation of state space, action space, and a preliminary reward function, along with starting the Gymnasium wrapper architecture. Week 5 is for getting the basic wrapper class functional: initialization, state observation, and episode termination logic. The baseline from which I want to depart is a working environment where a random policy can run episodes without crashing, even if it achieves nothing useful. Getting to that baseline, combined with what I learned this week about Basilisk's module structure, is the critical path.
+    </p>
+
+    <p>
+      A few specific challenges I am thinking about. The first is the <strong>cold start problem</strong> of the simulation. Every call to <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">reset()</code> needs to create a fresh simulation object, configure all the modules from scratch, and call <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">InitializeSimulation()</code>. Basilisk does not have a built-in checkpoint-restore mechanism, so there is overhead associated with each episode reset. For RL training with millions of environment steps, this overhead will accumulate. I may need to profile how long <code style="font-family:'Space Mono',monospace; font-size:.85em; color:var(--gold);">InitializeSimulation()</code> takes for different mission configurations and decide whether to accept this cost or find a workaround.
+    </p>
+
+    <p>
+      The second challenge is the <strong>reference frame consistency</strong> issue raised by the patched conics example. During training, episodes will span different mission phases, including Earth departure, heliocentric cruise, flyby approach, and the observation representation needs to be consistent across these phases. I am leaning toward always using heliocentric inertial coordinates for the position and velocity components of the observation, and computing planetocentric elements separately only for reward computation near flyby bodies. This avoids the discontinuities that would arise from switching the primary reference frame mid-episode.
+    </p>
+
+    <p>
+      One question I would appreciate feedback on from anyone reading this: for building a Gymnasium-compatible wrapper around a simulation framework like Basilisk, is it better to run the Basilisk simulation in a separate process and communicate with it via inter-process messaging (for robustness and clean separation), or to run it in the same Python process as the RL training loop (for lower latency per step)? My current plan is same-process, but I am wondering whether it may be problematic to reset and re-run many times within the same Python session without memory leaks.
+    </p>
+
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer">
+    <div class="byline">
+      WEEK 03 &nbsp;/&nbsp; MARCH 17, 2025<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 4: Designing the MDP</span>
+  </footer>
+
+</div><!-- .wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  /* Starfield */
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+
+  /* Scroll reveal */
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+
+</body>
+</html>

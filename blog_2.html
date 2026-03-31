@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 2: The Math Behind the Slingshot — Senior Project Blog</title>
+  <meta name="blog-title" content="The Math Behind the Slingshot">
+  <meta name="blog-date" content="March 10, 2025">
+  <meta name="blog-week" content="Week 2">
+  <meta name="blog-description" content="Diving into orbital mechanics, Lambert's problem, and what autonomous gravity-assist control research tells us about where RL needs to go next.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<!-- Star field canvas -->
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- NAV -->
+  <nav class="site-nav">
+    <a href="/" class="nav-brand">mazzola.dev</a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero reveal">
+    <p class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 2 &nbsp;·&nbsp; March 10, 2025</p>
+    <h1 class="hero-title">The Math Behind<br>the <em>Slingshot</em></h1>
+    <p class="hero-sub">
+      Diving into orbital mechanics, Lambert's problem, and what autonomous gravity-assist control research tells us about where reinforcement learning needs to go next.
+    </p>
+  </header>
+
+  <!-- ORBIT ANIMATION -->
+  <div class="orbit-container reveal">
+    <div class="orbit-ring" style="--size:120px; --speed:8s;">
+      <div class="orbit-dot" style="--dot:#009911;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:190px; --speed:14s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 1: CONTEXT -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> From Algorithms to Astrodynamics</h2>
+
+    <p>
+      Welcome back. Last week I researched the learning side of the problem, like the Markov decision processes and policy gradients. This week I pivoted entirely to the physics and mathematics of the trajectories themselves. To build a good environment for an RL agent to learn in, I need to understand the dynamics the environment is supposed to model, so this week was about building that understanding from first principles.
+    </p>
+
+    <p>
+      The reading covered orbital mechanics from Schaub and Junkins' <em>Analytical Mechanics of Space Systems</em>, then shifted to specialized literature on gravity-assist trajectory design, Lambert's problem, and an investigation of autonomous flyby control by Negri and Prado (2023), which managed to highlihgt a major challenge for my project. What follows is a walkthrough of the key ideas and how they fit together.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">— Reading Log, Week 2 —</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Analytical Mechanics of Space Systems (3rd ed.)</div>
+          <div class="re-author">Schaub & Junkins, 2014 — Chapters 1, 2, 9</div>
+        </div>
+        <div class="re-note">Two-body dynamics, orbital elements, conics, Lambert's problem</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Revisiting Lambert's Problem</div>
+          <div class="re-author">Izzo, D., 2015 — Celestial Mechanics and Dynamical Astronomy</div>
+        </div>
+        <div class="re-note">Efficient algorithm for solving orbital boundary-value problems</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Study on Autonomous Gravity-Assists with a Path-Following Control</div>
+          <div class="re-author">Negri & Prado, 2023 — arXiv:2307.06185</div>
+        </div>
+        <div class="re-note">Sliding-mode flyby control, Monte Carlo validation, Jovian tours</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Interplanetary Gravity-Assist Fuel-Optimal Trajectory Optimization</div>
+          <div class="re-author">Sarli & Taheri, 2020 — Celestial Mechanics and Dynamical Astronomy</div>
+        </div>
+        <div class="re-note">Optimal control for gravity-assist sequences with perturbations</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 2: TWO-BODY PROBLEM -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> The Two-Body Problem: Where Everything Starts</h2>
+    <p>
+      Schaub and Junkins ground everything in the two-body problem, which consists of a spacecraft of negligible mass orbiting a single gravitational body. In this idealized case, the equations of motion reduce to a very compact form. The spacecraft's acceleration is entirely determined by the gravitational parameter $\mu = GM$ of the central body and the spacecraft's distance $r$ from it:
+    </p>
+    <div class="formula-box">
+      <span class="comment"># Two-body equation of motion (Schaub & Junkins, Ch. 2)</span><br>
+      $$\ddot{\mathbf{r}} = -\frac{\mu}{r^3}\mathbf{r}$$
+      <span class="comment"># Vis-viva equation: speed at any point on a conic orbit</span><br>
+      $$v^2 = \mu\!\left(\frac{2}{r} - \frac{1}{a}\right)$$
+      <span class="comment"># $a$ = semi-major axis; $a > 0$ ellipse, $a < 0$ hyperbola, $a \to \infty$ parabola</span>
+    </div>
+    <p>
+      The vis-viva equation is the single most useful result in orbital mechanics. It tells you the spacecraft's speed at any point on any conic orbit, given only the orbit's semi-major axis and the current distance from the gravitational body. For gravity-assist design, it is essential because the approach speed at a planet, the speed through periapsis of the flyby hyperbola, and the departure speed are all just applications of vis-viva.
+    </p>
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          The two body problem's solutions are conic sections: circles, ellipses, parabolas, and hyperbolas, which can conveniently be described by six numbers called the <strong>classical orbital elements</strong>, or the semi-major axis $a$, eccentricity $e$, inclination $i$, longitude of the ascending node $\Omega$, argument of periapsis $\omega$, and true anomaly $\nu$. These six numbers completely describe where a spacecraft is and where it is going in a two-body gravitational field. Schaub and Junkins spend considerable effort showing how to convert between these elements and the Cartesian position-velocity state vector, which is what a simulation like Basilisk actually propagates.
+        </p>
+      </div>
+      <figure style="flex:0 0 256px; margin:0; text-align:center;">
+        <a title="Lasunncty, CC BY-SA 3.0, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Orbit1.svg">
+          <img width="256" alt="Diagram of Keplerian orbital elements" src="https://upload.wikimedia.org/wikipedia/commons/e/eb/Orbit1.svg" style="filter: invert(1); width:100%; display:block;">
+        </a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          The six classical Keplerian orbital elements: semi-major axis $a$, eccentricity $e$, inclination $i$, longitude of the ascending node $\Omega$, argument of periapsis $\omega$, and true anomaly $\nu$.
+        </figcaption>
+      </figure>
+    </div>
+
+    <p>
+      For my RL environment, the spacecraft's <em>state</em> needs to encode all information relevant to making good decisions. The Cartesian state vector (position $\mathbf{r}$, velocity $\mathbf{v}$, mass $m$) is the natural choice because Basilisk propagates in Cartesian coordinates. However, the orbital elements are far more interpretable since an RL agent that can effectively "see" its current orbit shape and orientation relative to its target may learn faster and generalize better than one that only sees raw coordinates. How to represent state is one of the design choices I'll need to experiment with.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Design Question #1</span>
+      <p>Should the RL agent observe Cartesian state vectors $(\mathbf{r}, \mathbf{v}, m)$ or Keplerian orbital elements $(a, e, i, \Omega, \omega, \nu, m)$? Or both? The orbital elements representation may help the agent learn faster by providing a physically meaningful structure, but it also introduces singularities at zero eccentricity and zero inclination that need to be handled carefully.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 3: HYPERBOLIC ORBITS -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Hyperbolic Orbits: The Grammar of the Gravity Assist</h2>
+
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          Much of orbital mechanics focuses on elliptical orbits, which are the closed paths that planets and satellites follow. But gravity assists happen on <em>hyperbolic</em> orbits, the curves traced by objects that have more than enough energy to escape a gravitational body. Understanding hyperbolic orbits in detail was one of the most important things I did this week because they are the fundamental unit of every gravity-assist maneuver.
+        </p>
+
+        <p>
+          On a hyperbolic orbit, the spacecraft arrives from effectively infinite distance with a nonzero speed relative to the planet, called the <strong>hyperbolic excess velocity</strong> $v_\infty$. It swings around the planet along a hyperbola, getting as close as the periapsis radius $r_p$, and then departs in a completely different direction, also with speed $v_\infty$ in the planet's reference frame. Schaub and Junkins derive from the vis-viva equation that the <em>magnitude</em> of $v_\infty$ is conserved through the flyby. Hence, the gravity-assist changes the <em>direction</em> of $v_\infty$, not its magnitude, in the planet's frame.
+        </p>
+      </div>
+      <figure style="flex:0 0 200px; margin:0; text-align:center;">
+        <a title="Rachelz9999, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:GravAssis.gif">
+          <img style="width:100%; display:block;" alt="GravAssis" src="https://upload.wikimedia.org/wikipedia/commons/c/c9/GravAssis.gif?_=20170101094815">
+        </a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          The geometry of a gravitational slingshot: in the planet's reference frame, the spacecraft's speed is unchanged but its direction is rotated by the turning angle $2\delta$. In the Sun's frame, this directional change translates to a net change in heliocentric speed, enabling propellant-free acceleration or deceleration.
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="formula-box">
+      <span class="comment"># Hyperbolic orbit (Schaub & Junkins, Ch. 9)</span><br>
+      $$v_\infty^2 = \mu\!\left(-\frac{1}{a}\right) \quad (a < 0 \text{ for hyperbola})$$
+      <span class="comment"># Half-turning angle: how much the flyby deflects the trajectory</span><br>
+      $$\sin\delta = \frac{\mu}{\mu + r_p v_\infty^2}$$
+      <span class="comment"># Total turning angle is $2\delta$; smaller $r_p$ → larger deflection</span><br>
+      $$\Delta v_\infty = 2 v_\infty \sin\delta \quad \text{(velocity change in Sun's frame)}$$
+    </div>
+
+    <p>
+      The turning angle $2\delta$ determines how much the flyby redirects the spacecraft's heliocentric velocity. A closer periapsis altitude means a tighter hyperbola, a larger turning angle, and a more powerful assist. But obviously the periapsis must stay above the planet's surface (and ideally well above the atmosphere). As a result you have to strike a balance between large deflections and the physical constraints of the flyby geometry.
+    </p>
+    
+
+    <p>
+      What surprised me in the Sarli and Taheri (2020) paper was how much perturbations complicate this clean picture. They model solar radiation pressure on the spacecraft alongside the planetary gravity assists themselves, and show that the optimal trajectory must account for these forces continuously throughout the transfer and not just at the flyby encounters. The perturbations are relatively small, but over months-long transfers to the outer planets they accumulate into significant trajectory deviations. A trained RL policy that can correct continuously for small errors is therefore far more valuable than a pre-computed optimal trajectory that assumes a clean dynamical model.
+    </p>
+
+    <div class="callout">
+      <span class="callout-label">Key Insight from Sarli & Taheri</span>
+      <p>Gravity-assist trajectories are typically designed using the <em>patched-conics approximation</em>, which treats each gravitational body in isolation and stitches together two-body solutions at the boundaries of each planet's sphere of influence. While this greatly simplifies the math, it introduces errors that must be corrected with additional delta-v. Higher-fidelity N-body simulations reveal that these patched-conics solutions can diverge substantially from real trajectories, especially in the complex gravitational environments of the outer planetary systems.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 4: LAMBERT'S PROBLEM -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Lambert's Problem: Connecting Two Points in Space</h2>
+
+    <p>
+       The problem is that given two positions in space and a specified travel time, what is the orbit connecting them? This is a boundary-value problem that appears everywhere in trajectory design. Any time you want to know "what velocity must I leave point A with to reach point B in exactly $\Delta t$ seconds?", you are solving Lambert's problem.
+    </p>
+
+    <p>
+      The mathematical elegance of Izzo's (2015) treatment was something I genuinely was not expecting from what I assumed would be a dry algorithmic paper. Izzo builds on Lancaster and Blanchard's classical formulation and introduces a new variable transformation. All Lambert problems with the same ratio $c/s$ (chord length over semi-perimeter of the triangle formed by the two position vectors) are geometrically equivalent under what Gooding called "L-similarity" as they share the same non-dimensional time-of-flight curves. This collapses what looks like a family of infinitely many problems into a single universal parameter space.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Lambert's problem: key parameters (Izzo, 2015)</span><br>
+      $$\lambda^2 = 1 - \frac{c}{s}, \quad s = \frac{1}{2}(r_1 + r_2 + c)$$
+      <span class="comment"># Non-dimensional time of flight</span><br>
+      $$T = \frac{1}{2}\sqrt{\frac{\mu}{a_m^3}}(t_2 - t_1) \quad \text{where } a_m = s/2$$
+      <span class="comment"># T is a function of $x$ (the iteration variable) and $\lambda$ alone</span><br>
+      $$T(x, \lambda) = \frac{1}{1-x^2}\!\left[\frac{\psi + M\pi}{\sqrt{|1-x^2|}} - x + \lambda y\right]$$
+    </div>
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          Izzo's solver converges very precisely (errors below $10^{-13}$) in an average of <strong>2.1 iterations</strong> for single-revolution transfers and about 3.3 iterations for multi-revolution cases, using a Householder iterative scheme fed by analytically derived initial guesses. For context, this is faster than the previously state-of-the-art Gooding algorithm, which required about 3 iterations per solve. Since a trajectory design problem may involve thousands or millions of Lambert solves (for example, sweeping over all possible departure and arrival dates to build a "porkchop plot"), the difference matters enormously.
+        </p>
+
+        
+      </div>
+      <figure style="flex:0 0 300px; margin:0; text-align:center;">
+        <a title="Lamid58, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Porkchop_plot_Earth_Mars_2018_05_13.png"><img width="256" alt="Porkchop plot Earth Mars 2018 05 13" src="https://upload.wikimedia.org/wikipedia/commons/6/6a/Porkchop_plot_Earth_Mars_2018_05_13.png?_=20190131091224"></a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          A porkchop plot for an Earth-Mars transfer, showing contours of C3 (departure energy) as a function of launch and arrival dates. The minimum-energy transfer windows appear as elliptical basins; each point on this plot is computed via one Lambert solve.
+        </figcaption>
+      </figure>
+    </div>
+    <p>
+      For my project, the Lambert solver is the backbone of the trajectory planning baseline I need to compare against. When I want to check whether my RL policy is doing something sensible, or when I need to construct a reference trajectory for the patched-conics tour design, Lambert solves are the tool. Izzo's solver is distributed as part of the open-source PyKEP library from ESA, which conveniently interfaces with Python. This is the same library that Zavoli and Federici used in their RL framework, so the integration path is well-tested.
+    </p>
+    <div class="callout">
+      <span class="callout-label">Why Lambert Matters for RL</span>
+      <p>Lambert's problem gives me a way to construct "expert" reference trajectories for any desired departure-arrival pair. These can serve as a sanity check for RL policy behavior, as targets for reward shaping, and as comparison baselines when measuring how much efficiency the RL policy sacrifices in exchange for robustness. Izzo's efficient solver means I can generate these references quickly enough to use them during training.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 5: NEGRI & PRADO — AUTONOMOUS FLYBY CONTROL -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> Autonomous Flyby Control & Limits of Patched Conics</h2>
+
+    <p>
+      The most immediately useful paper this week was Negri and Prado's (2023) study on autonomous control of gravity-assist hyperbolic trajectories. Negri and Prado zoom in on what actually happens during the flyby itself. Their central finding is important enough that it reframed how I'm thinking about the scope of my own project.
+    </p>
+
+    <p>
+      Their control strategy, called the Robust Keplerian Path-Following Control (RKPFC), is built on sliding mode control theory. Rather than tracking a specific reference trajectory in time (which would require the spacecraft to be at exactly the right place at exactly the right moment), the RKPFC drives the spacecraft to the correct <em>orbital geometry</em>, or the right shape and orientation of the hyperbola, without caring precisely when it arrives at each point. The sliding surface is defined in terms of integrals of motion:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># RKPFC sliding surface (Negri & Prado, 2023, Eq. 20)</span><br>
+      $$\mathbf{s} = \begin{bmatrix} \tilde{\mathbf{e}} \cdot (\lambda_R \hat{r} + \hat{\theta}) \\ \tilde{h}(\hat{h}_d \cdot (\lambda_N \hat{r} + \hat{\theta})) \end{bmatrix} = \mathbf{0}$$
+      <span class="comment"># $\tilde{\mathbf{e}} = \mathbf{e} - \mathbf{e}_d$: eccentricity vector error</span><br>
+      <span class="comment"># $\tilde{h} = h - h_d$: angular momentum magnitude error</span><br>
+      <span class="comment"># When $\mathbf{s} = \mathbf{0}$: spacecraft converges to desired Keplerian geometry</span>
+    </div>
+
+    <p>
+      "Path following" rather than "trajectory tracking" is as a result the right control objective for a gravity assist. Once you're inside a planet's sphere of influence, what matters is preserving the hyperbolic geometry (the eccentricity, inclination, periapsis) that will produce the desired velocity change. A few minutes early or late at periapsis barely matters, while arriving with the wrong orbit shape destroys the assist entirely.
+    </p>
+
+    <p>
+      What does the Monte Carlo validation show? Without control authority, Negri and Prado show that initial position errors of around 50 km (a realistic figure for autonomous guidance) produce wildly divergent outgoing trajectories. In the Titan simulations, the outgoing semi-major axis has a standard deviation of over 2,400 km, and some trajectories interact catastrophically with Titan's atmosphere. With the RKPFC active, the standard deviation goes to essentially zero and all trajectories converge to the desired geometry.
+    </p>
+
+    <figure style="display:flex; justify-content:center; gap:1rem; margin:2rem 0 0; align-items:flex-start;">
+      <a title="NASA/JPL-Caltech/Space Science Institute, Public domain, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Titan_in_true_color.jpg" style="flex:1 1 0; min-width:0;"><img style="width:100%; display:block;" alt="Titan from the Cassini spacecraft" src="https://upload.wikimedia.org/wikipedia/commons/4/45/Titan_in_true_color.jpg?_=20220419055931"></a>
+      <a title="NASA/JPL/USGS, Public domain, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Enceladus_from_Voyager.jpg" style="flex:1 1 0; min-width:0;"><img style="width:100%; display:block;" alt="Enceladus from Voyager" src="https://upload.wikimedia.org/wikipedia/commons/9/95/Enceladus_from_Voyager.jpg?_=20050317112030"></a>
+    </figure>
+    <figcaption style="font-size:.78rem; color:var(--muted); text-align:center; margin:0.5rem 0 2rem; line-height:1.5;">
+      <em>Left:</em> Titan, Saturn's largest moon and one of the test bodies in Negri & Prado's Monte Carlo simulations, here photographed by Cassini in approximately true color.
+      <em>Right:</em> Enceladus, where the controlled gravity-assist maintained orbital geometry during an extreme 25 km periapsis altitude flyby that is lower than Cassini ever attempted.
+    </figcaption>
+
+    <p>
+      Negri and Prado also simulated a Callisto-Ganymede-Europa-Io tour designed using a patched-conics model, then execute it in a more realistic N-body simulation of the Jovian system. However, even with their robust flyby controller active, <em>the tour fails</em>. The encounter with Europa occurs early due to chaotic N-body interactions, and the trajectory diverges completely from the design thereafter. A flyby control strategy alone cannot guarantee a tour based on patched-conics guidance in a truly chaotic multi-body environment. The guidance layer deciding the overall trajectory between flybys needs to be high-fidelity and adaptive.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">The Critical Gap This Paper Exposed</span>
+      <p>
+        Negri and Prado show that robust flyby control is a solved problem for individual encounters. The open challenge is the <em>guidance layer</em> that connects encounters into a coherent tour under N-body dynamics. A trained RL policy could potentially learn to account for the chaotic character of the Jovian system directly from simulation experience, treating the chaos as part of the environment rather than a perturbation to be corrected.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 6: PATCHED CONICS AND THE N-BODY PROBLEM -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> The Patched-Conics Approximation and Its Limitations</h2>
+
+    <p>
+      Most gravity-assist trajectory design relies on the patched-conics approximation. In the zero-SOI version, the encounter with a planet is treated as an instantaneous impulsive maneuver at the planet's center. In the more refined "finite-SOI" patched-conics model that Negri and Prado describe, the spacecraft's trajectory inside the sphere of influence is modeled as a genuine two-body hyperbola, and a Lambert solver connects the arcs between successive encounters. The decision variables for the tour become the encounter times $t_j$ and periapsis radii $r_{p,j}$ at each flyby body, and the optimization minimizes the sum of all corrective delta-v's needed to connect the arcs:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Patched-conics tour optimization objective (Negri & Prado, 2023, Eq. 17)</span><br>
+      $$\min \sum_j \left(\|\Delta\mathbf{V}_j^-\| + \|\Delta\mathbf{V}_j^+\|\right)$$
+      <span class="comment"># $\Delta\mathbf{V}_j^-$: impulse before $j$-th flyby to achieve the desired approach</span><br>
+      <span class="comment"># $\Delta\mathbf{V}_j^+$: impulse after $j$-th flyby to continue on the designed transfer arc</span><br>
+      <span class="comment"># Decision variables: $t_j, r_{p,j}, e_j, i_j, \Omega_j, \omega_j$ for each encounter</span>
+    </div>
+
+    <p>
+      This framework is clean and computationally manageable, which is why it has been the workhorse of interplanetary mission design for decades. But Negri and Prado's N-2 Circular Restricted N-Body Problem simulations show that in the outer planets, patched conics can be dramatically wrong. The Jovian moons move fast (Io completes a full orbit in under two days), so even the tens of minutes a spacecraft spends inside a moon's sphere of influence are enough for the moon to have moved significantly from where the patched-conics model assumed it was. The accumulated error across a multi-flyby tour makes the patched-conics solution essentially a warm-start guess rather than an executable flight plan.
+    </p>
+
+    <p>
+      This is where my thinking about the project is sharpening. For the inner solar system (Earth-Venus-Mars gravity assists), patched conics is a reasonable model and RL might simply need to learn to correct small deviations. For outer planet tours, which are the missions where gravity assists matter most, the RL agent will need to cope with fundamentally chaotic N-body dynamics. This could mean training in a high-fidelity simulation from the start, even if it is computationally expensive, rather than first training on a simple patched-conics model and expecting to transfer.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Design Question #2</span>
+      <p>Should I train the RL policy in a low-fidelity patched-conics environment first (faster training, cleaner reward signal) and then fine-tune in the high-fidelity Basilisk N-body environment, or is the dynamical gap so large that this transfer is harmful rather than helpful? Curriculum learning suggests the former might work, but the Negri & Prado results suggest the gap may be qualitative, not just quantitative.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 7: CONNECTING TO THE RL ENVIRONMENT -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> Building the State Space from First Principles</h2>
+
+    <p>
+      The spacecraft's state at any instant lives in a seven-dimensional space: three position components, three velocity components, and one for remaining mass. Basilisk propagates this state forward using high-fidelity numerical integration, accounting for N-body gravitational forces, solar radiation pressure, and atmospheric drag where relevant. The RL agent observes this state and outputs a three-dimensional thrust vector.
+    </p>
+
+    <p>
+      But raw Cartesian state is not necessarily the most informative representation for the agent. Inspired by Negri and Prado's use of the eccentricity vector $\mathbf{e}$ and angular momentum vector $\mathbf{h}$ as the quantities to be controlled during a flyby, I'm considering augmenting the Cartesian state with derived orbital elements. An agent that can "see" how far its current orbit deviates from the desired flyby hyperbola can form much more targeted commands than one reasoning purely from position and velocity numbers.
+    </p>
+
+    <div style="display:flex; gap:2rem; align-items:flex-start; margin-bottom:1.5rem;">
+      <div style="flex:1 1 0; min-width:0;">
+        <p>
+          However, unlike elliptical orbits, where standard Keplerian elements are always well-defined, the orbital elements of a hyperbolic trajectory inside a planet's SOI are defined relative to that planet's gravitational field, not the Sun's. The RL agent will need to switch reference frames as it moves between gravitational regimes, from heliocentric two-body during the interplanetary cruise, to planetocentric two-body during the flyby, and back again. The patched-conics approximation handles this transition (somewhat crudely) by stitching orbits together at the sphere of influence boundary. Building a smooth and numerically stable version of this for an RL observation function is a concrete implementation challenge ahead of me.
+        </p>
+      </div>
+      <figure style="flex:0 0 300px; margin:0; text-align:center;">
+        <a title="Phoenix7777, CC BY-SA 4.0 &lt;https://creativecommons.org/licenses/by-sa/4.0&gt;, via Wikimedia Commons" href="https://commons.wikimedia.org/wiki/File:Animation_of_Cassini_trajectory.gif"><img width="512" alt="Animation of Cassini trajectory" src="https://upload.wikimedia.org/wikipedia/commons/4/46/Animation_of_Cassini_trajectory.gif?_=20190323053035" style="width:100%; display:block;"></a>
+        <figcaption style="font-size:.78rem; color:var(--muted); margin-top:0.5rem; line-height:1.5;">
+          Cassini's interplanetary trajectory to Saturn, which used two Venus flybys, one Earth flyby, and one Jupiter flyby to achieve the required heliocentric velocity. Each arc between planets is a separate conic section, stitched together at the sphere of influence of each flyby body.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SECTION 8: LOOKING AHEAD -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">08</span> Looking Ahead</h2>
+
+    <p>
+      Next week I'll be finishing the reading phase and moving into environment implementation. The first concrete milestone is getting Basilisk installed and running simple test propagations, confirming that a spacecraft in a Keplerian orbit stays on that orbit, that a hyperbolic flyby gives the expected velocity change, and that the sphere-of-influence transitions behave consistently. These are sanity checks, but failing them early is far better than failing them in the middle of RL training.
+    </p>
+
+    <p>
+      Two things from this week's reading are sitting unresolved in my mind. The first is the question of simulation fidelity versus training speed. Negri and Prado's results suggest that patched-conics guidance fails in the outer solar system because the dynamics are qualitatively different from the model. That means high-fidelity training may not be optional for multi-gravity-assist missions as it is the only setting where the problem is being posed correctly. This will likely force me to be aggressive about computational optimization from the start, possibly using parallelized environment rollouts or cloud computing.
+    </p>
+
+    <p>
+      The second unresolved question is about the guidance layer. Negri and Prado's flyby controller handles the local problem about keeping the spacecraft on the right hyperbola during an encounter but concludes that the global tour planning problem requires something beyond pure control. Reinforcement learning, trained end-to-end on the full multi-flyby problem, could in principle learn to handle both layers simultaneously. That is an ambitious goal, but it is also precisely what makes this research interesting. I'll be designing the Markov decision process formulation with this dual-layer structure in mind.
+    </p>
+
+    <p>
+      One question for anyone reading this: do you know of any open-source implementations of multi-body tour optimization that use something other than patched-conics as the baseline? I'm aware of GMAT and MONTE from JPL, but both are either proprietary or complex to integrate. Any pointers to Python-based tools for generating high-fidelity gravity-assist reference trajectories would be enormously useful.
+    </p>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 02 &nbsp;/&nbsp; MARCH 10, 2025<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 3: Setting Up the Simulation Environment</span>
+  </footer>
+
+</div><!-- /wrapper -->
+
+<!-- STAR FIELD SCRIPT -->
+<script>
+(function() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = document.body.scrollHeight || window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 5000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.3 + .2,
+        a: Math.random(),
+        speed: Math.random() * .003 + .001,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+    stars.forEach(s => {
+      const alpha = s.a * (0.5 + 0.5 * Math.sin(frame * s.speed + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 200, 255, ${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  function init() {
+    resize();
+    initStars();
+    draw();
+  }
+
+  window.addEventListener('resize', () => { resize(); initStars(); });
+  window.addEventListener('load', init);
+  init();
+})();
+</script>
+
+<!-- SCROLL REVEAL SCRIPT -->
+<script>
+(function() {
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+
+  revealEls.forEach(el => io.observe(el));
+})();
+</script>
+
+</body>
+</html>
