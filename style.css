@@ -326,11 +326,27 @@ p { margin-bottom: 1.2rem; }
 .orbit-container {
   position: relative;
   width: 100%;
-  height: 200px;
+  height: 300px;
   margin: 2.5rem 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.orbit-asteroid {
+  position: absolute;
+  border-radius: 50%;
+  border: none;
+  width:  var(--size, 120px);
+  height: var(--size, 120px);
+  animation: spin1 var(--speed, 30s) linear infinite var(--dir, normal);
+  animation-delay: var(--delay, 0s);
+}
+
+.orbit-asteroid .orbit-dot {
+  width: var(--dot-size, 3px);
+  height: var(--dot-size, 3px);
+  box-shadow: 0 0 3px var(--dot, #888);
 }
 .orbit-ring {
   position: absolute;

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 5: Two Burns, Not Twenty | Senior Project Blog</title>
+  <meta name="blog-title" content="Two Burns, Not Twenty">
+  <meta name="blog-date" content="March 31, 2025">
+  <meta name="blog-week" content="Week 5">
+  <meta name="blog-description" content="The agent has finally learned what it means to burn efficiently.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 5 &nbsp;·&nbsp; March 31, 2025</div>
+    <h1 class="hero-title">Two Burns,<br><em>Not Twenty</em></h1>
+    <p class="hero-sub">
+      The agent has finally learned what it means to burn efficiently.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> The Problem Left on the Table</h2>
+
+    <p>
+      Welcome back. Last week, the trained agent was reaching roughly the right altitude but was doing it wrong. Instead of two short impulsive burns (a prograde kick at perigee to elongate the orbit, a coast for roughly 20-30 steps, then a second kick at apogee to circularise), it was bleeding thrust continuously across the entire episode, ending with roughly the right orbit by sheer persistence.
+    </p>
+
+    <p>
+      The reward function was the culprit and two specific failures were embedded in its design. First, the SMA progress term rewarded the agent any time its orbit size increased, even past the target, so overshooting was costless. Second, the fuel penalty was calibrated as a "tiebreaker" rather than a real constraint, so the agent had almost no incentive to concentrate burns instead of spreading them out. This week I redesigned both.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 5 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/env_config.py</div>
+          <div class="re-author">Reward parameters: fuel_reward_scale, decisive_penalty, ta_bonus_scale, success_bonus, SMA potential redesign</div>
+        </div>
+        <div class="re-note">Reward redesign</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/hohmann_env.py</div>
+          <div class="re-author">_compute_reward(): symmetric potential, doubly-quadratic ta_bonus, altitude-weighted eccentricity</div>
+        </div>
+        <div class="re-note">Implementation</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_train.py</div>
+          <div class="re-author">clip_range 0.2→0.1, ent_coef 0.005→0.015, net_arch [128,128], log_std_init=-1.0</div>
+        </div>
+        <div class="re-note">PPO tuning</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">tests/test_reward_shaping.py</div>
+          <div class="re-author">381 lines of unit tests verifying every reward component in isolation</div>
+        </div>
+        <div class="re-note">New test module</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Training runs v4, v6, v7</div>
+          <div class="re-author">10M timesteps each across 12–14 parallel environments, randomised orbit distributions</div>
+        </div>
+        <div class="re-note">Results</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> Redesigning the Reward</h2>
+
+    <p>
+      Reward shaping in reinforcement learning is a precise tool. Every term you add changes what the agent is maximising, and the changes interact with each other in non-obvious ways.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Change 1: Symmetric SMA Potential</h3>
+
+    <p>
+      The original progress term rewarded any increase in semi-major axis, regardless of whether the orbit was already larger than the target meaning that burning past the target was free. The fix is to replace the one-sided progress signal with a potential function that peaks at the target and falls off symmetrically in both directions:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Before: one-sided, only rewards climbing</span><br>
+      $$r_\text{sma} = \frac{a_k - a_{k-1}}{a_\text{target} - a_\text{init}} \times 50$$<br>
+      <br>
+      <span class="comment"># After: symmetric, penalises both overshoot and undershoot</span><br>
+      $$\Phi(a) = \frac{-|a - a_\text{target}|}{a_\text{target} - a_\text{init}}, \qquad r_\text{sma} = \bigl[\Phi(a_k) - \Phi(a_{k-1})\bigr] \times 50$$<br>
+      <span class="comment"># Moving toward the target is always rewarded, moving away is always penalised</span>
+    </div>
+
+    <p>
+      This uses the potential-based reward shaping framework from Ng et al. (1999), which proves that any shaping reward of the form $\gamma\Phi(s') - \Phi(s)$ leaves the optimal policy of the original task unchanged.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Change 2: Fuel Penalty Made Real</h3>
+
+    <p>
+      I raised the fuel penalty scale from 10 to 75. At the old scale, burning inefficiently cost almost nothing relative to the SMA progress reward. A wasteful agent that drained its tank over 40 steps accumulated a total fuel penalty of about -8.7 across the episode. A successful, efficient agent earned around +246. The penalty was barely visible. At 75x, the same inefficient tank-drain costs about -65, while an efficient Hohmann brings in roughly +172 total.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Change 3: Decisiveness Penalty</h3>
+
+    <p>
+      Even with a stronger fuel penalty, the agent could still satisfy it by consistently burning at a moderate fraction rather than oscillating between full burns and coasting. To explicitly push toward binary coast-or-burn decisions, I added a per-step penalty on intermediate burn fractions:
+    </p>
+
+    <div class="formula-box">
+      $$r_\text{decisive} = -0.5 \times \text{burn\_frac} \times (1 - \text{burn\_frac})$$<br>
+      <span class="comment"># burn_frac = 0 (coasting): penalty = 0</span><br>
+      <span class="comment"># burn_frac = 1 (full burn): penalty = 0</span><br>
+      <span class="comment"># burn_frac = 0.5 (maximum ambiguity): penalty = -0.125</span><br>
+      <span class="comment"># Accumulates to at most -5 over a full 40-step episode</span>
+    </div>
+
+    <p>
+      The shape of this function ($x(1-x)$) is zero at both extremes and peaks at the midpoint. Any burn that is neither a full commitment nor a coast gets penalised. The total per-episode penalty is small by design, because the goal is to tip the cost-benefit balance instead of dominating the signal.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Change 4: Location-Aware Burn Bonus</h3>
+
+    <p>
+      This is the most mechanically interesting change. A Hohmann transfer only works if burns happen at specific points in the orbit: burn 1 at the lowest point (periapsis) to raise the opposite side, burn 2 at the highest point (apogee) to circularise. The agent needed to be told that where you burn matters as much as how long you burn.
+    </p>
+
+    <p>
+      I added a per-step bonus that rewards burning near the right orbital location at each phase of the transfer. During the first half of the transfer (while the orbit is still small) the bonus rewards burning near periapsis. After the midpoint, it rewards burning near apogee. The bonus is zero at the wrong location and zero during coasting, so it does not punish coast arcs.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Phase 1 (orbit smaller than midpoint SMA): reward periapsis burns</span><br>
+      $$r_\text{ta} = 4.0 \times \text{burn\_frac}^2 \times \max(0,\,\cos\nu)^2$$<br>
+      <br>
+      <span class="comment"># Phase 2 (orbit larger than midpoint SMA): reward apogee burns</span><br>
+      $$r_\text{ta} = 4.0 \times \text{burn\_frac}^2 \times \max(0,\,-\cos\nu)^2$$<br>
+      <span class="comment"># ν is the true anomaly (position angle in the orbit). cos ν ≈ +1 at periapsis, ≈ -1 at apogee.</span>
+    </div>
+
+    <p>
+      Both the spatial term ($\cos^2\nu$) and the burn-fraction term ($\text{burn\_frac}^2$) are squared, making this a doubly-quadratic profile. The spatial squaring concentrates the effective firing window to roughly ±70 degrees around the node: at 60 degrees off-node the bonus is only 25% of peak, and at 80 degrees it is 3%. The burn-fraction squaring is the subtler fix. With a linear-in-burn-fraction formula, there was always some positive marginal reward for starting any burn near the correct location, even a tiny one. The squared version makes the gradient zero at burn_frac = 0: no marginal reward for starting a small burn at all. Only committing to a large burn earns meaningful location bonus. This is what breaks the "small burns everywhere near apogee" local optimum that survived the first version of this term.
+    </p>
+
+    <!-- Doubly-quadratic visual -->
+    <div style="margin:2rem 0;">
+      <svg viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg" style="width:100%; border-radius:6px; background:#060814; border:1px solid rgba(99,133,255,.2); display:block;">
+        <defs>
+          <linearGradient id="quadGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#4a6aff" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#f0b155" stop-opacity="0.3"/>
+          </linearGradient>
+        </defs>
+        <!-- axes -->
+        <line x1="70" y1="180" x2="550" y2="180" stroke="rgba(99,133,255,.3)" stroke-width="1"/>
+        <line x1="70" y1="20"  x2="70"  y2="180" stroke="rgba(99,133,255,.3)" stroke-width="1"/>
+        <!-- x-axis label -->
+        <text x="310" y="210" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="10" letter-spacing="0.1em">BURN FRACTION</text>
+        <text x="15"  y="100" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="10" letter-spacing="0.1em" transform="rotate(-90,15,100)">BONUS</text>
+        <!-- x ticks -->
+        <text x="70"  y="196" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0</text>
+        <text x="190" y="196" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0.25</text>
+        <text x="310" y="196" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0.5</text>
+        <text x="430" y="196" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0.75</text>
+        <text x="550" y="196" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">1.0</text>
+        <!-- old linear curve (bf * 1, at node): y = 20 + 160*(1 - bf) -->
+        <!-- new quadratic curve (bf^2, at node): y = 20 + 160*(1 - bf^2) -->
+        <!-- bf from 0 to 1 in steps, x = 70 + 480*bf -->
+        <!-- old linear: value = bf, so y = 180 - 160*bf -->
+        <polyline
+          fill="none" stroke="#6474a0" stroke-width="1.5" stroke-dasharray="6 3"
+          points="70,180 118,172 166,164 214,156 262,148 310,140 358,132 406,124 454,116 502,108 550,100"
+        />
+        <!-- new quadratic: value = bf^2, so y = 180 - 160*bf^2 -->
+        <polyline
+          fill="none" stroke="#f0b155" stroke-width="2.5"
+          points="70,180 118,177.3 166,171.2 214,161.4 262,148.1 310,131.0 358,110.4 406,85.9 454,58.0 502,30 550,7"
+        />
+        <!-- annotations -->
+        <text x="350" y="52"  fill="#f0b155" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.08em">QUADRATIC (new)</text>
+        <text x="455" y="100" fill="#6474a0" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.08em" style="opacity:.8">LINEAR (old)</text>
+        <!-- zero-gradient annotation -->
+        <circle cx="70" cy="180" r="4" fill="#4a6aff"/>
+        <text x="10" y="170" fill="#4a6aff" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.06em">gradient = 0 here</text>
+        <text x="80" y="140" fill="#6474a0" font-family="Space Mono, monospace" font-size="8">no reward for starting a tiny burn</text>
+        <text x="300" y="16" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="10" text-anchor="middle" letter-spacing="0.12em">TA BONUS vs. BURN FRACTION (AT OPTIMAL LOCATION)</text>
+      </svg>
+      <p style="font-size:.82rem; color:var(--muted); margin-top:.5rem; text-align:center;">
+        The new quadratic profile has zero slope at burn_frac = 0. A tiny burn earns almost nothing; only a committed burn earns meaningful bonus.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Change 5: Altitude-Weighted Eccentricity Shaping</h3>
+
+    <p>
+      Executing burn 1 sends the eccentricity from near zero (circular LEO) up to roughly 0.5 to 0.7 (the elongated transfer ellipse). Under the old reward, this spike was penalised immediately, even though it is a required step toward the final circular orbit. The fix ties the eccentricity shaping weight to how far along the transfer the spacecraft is. Near LEO the eccentricity term is weighted near zero. Near the target altitude the weight rises to full scale. Circularising in the right place earns a strong reward; the unavoidable eccentricity during the climb costs almost nothing.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Why the Changes Work Together</span>
+      <p>
+        Each change closes one hole in the previous reward. The symmetric SMA potential stops overshooting from being free. The higher fuel penalty makes efficiency a real constraint. The decisiveness term closes the "moderate burns everywhere" loophole. The doubly-quadratic location bonus closes the "small burns near the right place" loophole. The altitude-weighted eccentricity stops burn 1 from looking worse than coasting.
+        Together they leave exactly one local optimum: two concentrated burns at the right orbital locations.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> A Physics Problem: Why Not GEO</h2>
+
+    <p>
+      There was a second problem with the original setup that is not about reward design at all. The previous training target was GEO (geostationary orbit, roughly 42,000 km altitude). While this is a physically meaningful goal, it turned out to be impossible for the agent to reach within the 5% accuracy tolerance given the current thruster configuration.
+    </p>
+
+    <p>
+      The issue is gravity losses. When a thruster fires for an extended period, the spacecraft curves through its orbit rather than pointing straight in one direction. Part of the thrust goes toward fighting gravity rather than building orbital energy. The longer the burn relative to the orbital period, the more energy is lost. For a LEO-to-GEO transfer with a 1000 N thruster on a 750 kg spacecraft, reaching the transfer orbit apogee requires burning for roughly 50% of the orbital period. At that fraction, gravity losses eat about 18% of the theoretical energy gain. The actual apogee ends up at around 34,500 km instead of the required 42,164 km, an 18% error, far outside the 5% tolerance.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">~50%</span>
+        <span class="stat-label">LEO orbital period consumed by burn 1 for GEO transfer</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">18%</span>
+        <span class="stat-label">Gravity loss on GEO transfer, 3.6× the 5% tolerance</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">~16%</span>
+        <span class="stat-label">Burn 1 duration for MEO (11,000 km) target, losses drop to 4.3%</span>
+      </div>
+    </div>
+
+    <p>
+      The fix is to change the target to Medium Earth Orbit (MEO) in the 8,000 to 11,000 km altitude band. Burn 1 for this target spans only about 16% of the orbital period. Gravity losses drop to roughly 4.3%, which falls within the 5% SMA tolerance. The physics of the transfer are identical: same two-burn structure, same Hohmann geometry, but the shorter burn time makes the problem achievable without changing any equipment. GEO remains the long-term goal; it requires either a more powerful thruster or a finer time resolution (more decision steps per episode) to reduce each individual burn's fraction of the orbital period.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Steadying the Learner: PPO Tuning</h2>
+
+    <p>
+      Beyond the reward, I also changed several parameters of the PPO learning algorithm itself. These changes were motivated by observing what went wrong in the earlier runs.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Clip Range: 0.2 → 0.1</h3>
+
+    <p>
+      PPO's defining feature is a clipping constraint that limits how much the policy can change in a single update step. The clip range parameter controls this limit. The standard default of 0.2 allows policy changes of up to 20% per update, which is appropriate for most continuous control problems. For this task, the doubly-quadratic reward landscape is unusually sensitive near the second burn: a small change in burn timing or location produces a large change in reward, which can translate into an oversized gradient update. Setting the clip range to 0.1 forces the policy to take smaller, more conservative steps. This alone had a measurable effect on training stability, particularly in avoiding the early collapse seen in the v6 run.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Entropy Coefficient: 0.005 → 0.015</h3>
+
+    <p>
+      PPO adds a small bonus for policy entropy, a measure of how "spread out" the agent's action distribution is. High entropy means the agent is trying many different actions; low entropy means it has converged to a nearly deterministic strategy. In the v4 run the entropy eventually collapsed around 7.5 million steps: the policy became too confident in one particular (suboptimal) strategy, stopped exploring, and its performance cratered before slowly recovering. Raising the entropy coefficient from 0.005 to 0.015 keeps the agent exploring longer, preventing that collapse from happening so severely.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Network Width: 64×64 → 128×128</h3>
+
+    <p>
+      I widened both the actor and critic networks from 64 to 128 units per layer. The Hohmann task with randomised orbits presents 16 inputs and requires the agent to discover a phase-sensitive, two-burn strategy. The additional capacity gives the networks more room to represent the structured timing required.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Initial Action Distribution: log_std_init = -1.0</h3>
+
+    <p>
+      PPO for continuous actions represents the policy as a Gaussian distribution over each action dimension. The default initial standard deviation is 1.0, which produces a near-uniform spread across the full action range. Initialising with a smaller standard deviation (std ≈ 0.37) biases the agent toward more decisive actions from the start, reducing the amount of time spent in the noisy mid-range of the burn fraction during early training.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> Three Training Runs, Three Lessons</h2>
+
+    <p>
+      I ran three full training campaigns of 10 million timesteps each. The changes were introduced incrementally to isolate which factors were responsible for improvements and which introduced new instabilities.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.1rem;">v4</span>
+        <span class="stat-label">clip=0.2, ent=0.005, ta_scale=2.0<br>Best: 184 @ 9.8M steps</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.1rem;">v6</span>
+        <span class="stat-label">clip=0.2, ent=0.015, ta_scale=4.0<br>Best: 191 @ 9.9M steps</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.1rem;">v7</span>
+        <span class="stat-label">clip=0.1, ent=0.015, ta_scale=4.0<br>Best: 192 @ 8.4M steps</span>
+      </div>
+    </div>
+
+    <!-- ─── REWARD CURVE SVG ─── -->
+    <div style="margin:2rem 0;">
+      <svg viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg" style="width:100%; border-radius:6px; background:#060814; border:1px solid rgba(99,133,255,.2); display:block;">
+        <defs>
+          <clipPath id="plotArea">
+            <rect x="70" y="15" width="520" height="210"/>
+          </clipPath>
+        </defs>
+
+        <!-- ─ grid lines ─ -->
+        <line x1="70" y1="15"  x2="590" y2="15"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="57"  x2="590" y2="57"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="99"  x2="590" y2="99"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="141" x2="590" y2="141" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="183" x2="590" y2="183" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="225" x2="590" y2="225" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+
+        <!-- vertical grid -->
+        <line x1="174" y1="15" x2="174" y2="225" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="278" y1="15" x2="278" y2="225" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="382" y1="15" x2="382" y2="225" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="486" y1="15" x2="486" y2="225" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="590" y1="15" x2="590" y2="225" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+
+        <!-- axes -->
+        <line x1="70" y1="225" x2="590" y2="225" stroke="rgba(99,133,255,.4)" stroke-width="1.5"/>
+        <line x1="70" y1="15"  x2="70"  y2="225" stroke="rgba(99,133,255,.4)" stroke-width="1.5"/>
+
+        <!-- ─ axis labels ─ -->
+        <!-- Y ticks: 200=15, 150=57, 100=99, 50=141, 0=183, -50=225 -->
+        <text x="62" y="19"  text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">200</text>
+        <text x="62" y="61"  text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">150</text>
+        <text x="62" y="103" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">100</text>
+        <text x="62" y="145" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">50</text>
+        <text x="62" y="187" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0</text>
+        <!-- Y axis label -->
+        <text x="12" y="120" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.1em" transform="rotate(-90,12,120)">MEAN REWARD</text>
+
+        <!-- X ticks -->
+        <text x="70"  y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0</text>
+        <text x="174" y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">2M</text>
+        <text x="278" y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">4M</text>
+        <text x="382" y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">6M</text>
+        <text x="486" y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">8M</text>
+        <text x="590" y="239" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">10M</text>
+        <text x="330" y="258" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.12em">TRAINING STEPS</text>
+
+        <!-- ─ helper function note ─ -->
+        <!-- y = 225 - (reward + 50) * (210/250) = 225 - reward*0.84 - 42 = 183 - reward*0.84 -->
+        <!-- x = 70 + steps/10e6 * 520 -->
+
+        <!-- ─── v4 curve (muted blue) ─── -->
+        <!-- key points: (0,0), (500k,20), (1M,173), (1.5M,177), (7M,181), (7.5M,7), (8.5M,21), (9M,180), (10M,183) -->
+        <polyline clip-path="url(#plotArea)"
+          fill="none" stroke="#4a6aff" stroke-width="1.5" stroke-opacity="0.7"
+          points="
+            70,183
+            96,166
+            122,38
+            148,34
+            174,34
+            200,34
+            226,34
+            252,33
+            278,33
+            304,32
+            330,31
+            356,32
+            382,31
+            408,31
+            434,31
+            460,183
+            486,183
+            509,165
+            512,183
+            538,31
+            564,30
+            590,30
+          "
+        />
+        <!-- v4 collapse annotation -->
+        <line x1="460" y1="183" x2="460" y2="225" stroke="#4a6aff" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.4"/>
+        <text x="464" y="222" fill="#4a6aff" font-family="Space Mono, monospace" font-size="8" opacity="0.6">collapse</text>
+
+        <!-- ─── v6 curve (orange) ─── -->
+        <!-- key points: (0,0), (500k,16), (1M,172), (1.5M,33), ... stuck at ~33 until 7.5M, then (7.5M,185), (10M,191) -->
+        <polyline clip-path="url(#plotArea)"
+          fill="none" stroke="#e05c3a" stroke-width="1.5" stroke-opacity="0.7"
+          points="
+            70,183
+            96,169
+            122,38
+            148,155
+            174,155
+            200,155
+            226,155
+            252,155
+            278,155
+            304,155
+            330,155
+            356,155
+            382,155
+            408,155
+            434,155
+            460,25
+            486,24
+            512,23
+            538,24
+            564,23
+            590,22
+          "
+        />
+        <!-- v6 recovery annotation -->
+        <line x1="460" y1="25" x2="460" y2="15" stroke="#e05c3a" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.4"/>
+
+        <!-- ─── v7 curve (gold) ─── -->
+        <!-- key points: (0,0), (500k,12), (1M,18), (1.5M,170), (5.5M,183), (6.5M,32), (7M,186), (8.5M,186), (9.5M,184), (10M,28) -->
+        <polyline clip-path="url(#plotArea)"
+          fill="none" stroke="#f0b155" stroke-width="2.5"
+          points="
+            70,183
+            96,173
+            122,168
+            148,40
+            174,40
+            200,36
+            226,37
+            252,38
+            278,35
+            304,32
+            330,33
+            356,31
+            382,31
+            408,155
+            434,28
+            460,29
+            486,27
+            512,26
+            538,27
+            564,28
+            590,160
+          "
+        />
+        <!-- v7 peak annotation -->
+        <circle cx="486" cy="27" r="4" fill="#f0b155"/>
+        <text x="490" y="24" fill="#f0b155" font-family="Space Mono, monospace" font-size="8">peak 192.4</text>
+
+        <!-- ─ legend ─ -->
+        <rect x="390" y="25" width="190" height="64" rx="3" fill="#060814" fill-opacity="0.7" stroke="rgba(99,133,255,.2)" stroke-width="1"/>
+        <line x1="400" y1="42" x2="424" y2="42" stroke="#4a6aff" stroke-width="1.5" stroke-opacity="0.7"/>
+        <text x="430" y="46" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v4 (clip=0.2, ent=0.005)</text>
+        <line x1="400" y1="57" x2="424" y2="57" stroke="#e05c3a" stroke-width="1.5" stroke-opacity="0.7"/>
+        <text x="430" y="61" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v6 (clip=0.2, ent=0.015)</text>
+        <line x1="400" y1="72" x2="424" y2="72" stroke="#f0b155" stroke-width="2.5"/>
+        <text x="430" y="76" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v7 (clip=0.1, ent=0.015)</text>
+
+        <!-- title -->
+        <text x="330" y="12" text-anchor="middle" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="10" letter-spacing="0.12em">TRAINING REWARD: v4 / v6 / v7</text>
+      </svg>
+      <p style="font-size:.82rem; color:var(--muted); margin-top:.5rem; text-align:center;">
+        Mean episode reward over 10M training steps for each run. Each run trained 10-14 parallel environments simultaneously.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">v4: A Stable Run with a Bad Strategy</h3>
+
+    <p>
+      v4 introduced the full reward overhaul (symmetric SMA potential, higher fuel penalty, decisive_penalty, and an initial version of the location bonus at half scale) along with the wider 128x128 network. According to the training curve, the policy discovered a useful strategy around 1 million steps and held onto reward levels in the 175-183 range for the majority of training. The brief collapse around 7.5 million steps, followed by full recovery to 183 by 10 million, showed the policy converged too hard to one specific burn schedule, exploration collapsed, and it took another 1.5 million steps to shake loose.
+    </p>
+
+    <p>
+      Looking at the evaluation trajectories, v4 reaches the target orbit in every episode. However, we see the problem in the thruster command panel. Turns out, instead of a single decisive kick at apogee, v4 spreads its burn energy across the latter half of the episode with many small-to-medium burns.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">v6: A Worse Collapse, a Better Recovery</h3>
+
+    <p>
+      v6 doubled the location bonus scale (from 2.0 to 4.0) and raised the entropy coefficient to 0.015 to address v4's collapse, but kept the clip range at 0.2. However, rather than staying stable, the training collapsed even earlier, at around 1.5 million steps, and spent the next 6 million steps stuck near a reward of 33. This is far worse than v4's brief late-run collapse.
+    </p>
+
+    <p>
+      A doubled location bonus creates steeper gradients near the optimal firing locations. With clip_range=0.2, a single gradient update could shift the policy enough to fall off the narrow reward peak and land in a flat, low-reward region. Once stuck there, the agent had to rediscover the correct strategy from scratch, which took 6 million steps. When v6 finally recovered around 7.5 million steps, it reached a higher peak (191) than v4 (184), confirming that the stronger location bonus is helpful once the policy finds the right territory.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">v7: Controlled Steps, Cleaner Burns</h3>
+
+    <p>
+      v7 kept all of v6's changes but reduced the clip range from 0.2 to 0.1. The smaller clip range forced the policy to take more conservative steps, preventing the large early collapse that plagued v6. The training curve shows a much healthier progression where the policy reaches useful performance around 1.5 million steps and improves steadily to a peak of 192.4 at 8.4 million steps. There is a brief instability around 6.5 million steps, but the recovery is fast. The run ends with a late-training collapse near 9.5 million steps that the training run did not fully recover from. The best model checkpoint from 8.4 million steps is what matters here.
+    </p>
+
+    <p>
+      At 192 reward, v7's best model is the strongest result so far. More importantly, the <em>shape</em> of the trajectory has fundamentally changed.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> What the Trajectories Actually Look Like</h2>
+
+    <p>
+      The reward number is one thing. The trajectory is the real test. Here are the evaluation results from v4 and v7 side by side:
+    </p>
+
+    <p style="font-family:'Space Mono',monospace; font-size:.72rem; letter-spacing:.15em; text-transform:uppercase; color:var(--glow); margin-bottom:.5rem;">v4: Distributed Burns</p>
+    <img
+      src="/traj_v4.png"
+      alt="v4 evaluation trajectories: SMA reaches target but thruster shows distributed burns across many steps"
+      style="width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin-bottom:1.5rem;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:2rem; text-align:center;">
+      v4: all episodes reach the target, but the bottom panel shows burn energy spread across steps 15-40. No clear two-burn structure.
+    </p>
+
+    <p style="font-family:'Space Mono',monospace; font-size:.72rem; letter-spacing:.15em; text-transform:uppercase; color:var(--gold); margin-bottom:.5rem;">v7: Two-Burn Hohmann</p>
+    <img
+      src="/traj_v7.png"
+      alt="v7 evaluation trajectories: SMA rises cleanly to target with two distinct burn pulses at periapsis and apogee"
+      style="width:100%; border-radius:6px; border:1px solid rgba(240,177,85,.2); padding:1rem; margin-bottom:1.5rem;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      v7: burn 1 at steps 2-5 (periapsis), coast for 20 steps, burn 2 at steps 26-30 (apogee). All episodes land within 1.3% of the target SMA.
+    </p>
+
+    <p>
+      The bottom panel of the v7 plot showcases a concentrated burst of thrust at the start of the episode (when the spacecraft is near periapsis and prograde burns are most efficient), a long coast through the transfer ellipse, and then a second concentrated burst near the halfway point of the episode (when the spacecraft has reached apogee and a final prograde burn circularises the orbit). This is a Hohmann transfer, executed autonomously by a neural network.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">The Oberth Effect in Practice</span>
+      <p>
+        The reason burns at periapsis are more efficient than burns anywhere else in the orbit is the Oberth effect. It specifies that kinetic energy gained from a burn is proportional to $F \cdot v$, where $v$ is the spacecraft's current speed. Orbital speed peaks at periapsis and is lowest at apogee. Burning at periapsis for burn 1, where speed is highest, delivers maximum energy to the orbit.
+      </p>
+    </div>
+
+    <div class="hypo-panel">
+      <h3>// On Eccentricity Errors //</h3>
+      <p>
+        The v7 trajectories show SMA errors around 1.3% and eccentricities of roughly 0.01 to 0.03, well within the tolerances of 5% and 0.10. The small residual eccentricity comes from the fact that the agent is making a finite-duration burn rather than an instantaneous kick. Burning across a range of orbital positions inevitably creates a slightly non-circular final orbit. Even the analytical oracle policy produces similar residuals for the same reason.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> What Comes Next</h2>
+
+    <p>
+      With a working Hohmann policy in hand, the next step is to stress-test this one. I'll want to tackle the second part of my central research question for this project, which is whether a trained RL policy can handle uncertainties in real time.      The plan is to make the model robust to perturbations by injecting noise directly into the observation and control channels during evaluation. 
+    </p>
+
+    <p>
+      The long-term aim of the project is a policy that can autonomously correct for uncertainties in real time without ground intervention, which matters most for deep-space missions where communication delays make ground-loop corrections impossible. Testing the current Hohmann policy under perturbations is the first step toward understanding what that requires. If the policy collapses under moderate noise, that tells me something important about what the architecture or training curriculum needs to change before scaling to multi-gravity-assist scenarios.
+    </p>
+
+    <p>
+      There is also the late-training collapse in v7 to account for. The best checkpoint is from step 8.4 million, but the run ended in instability.
+    </p>
+
+    <p>
+      Next week: observation and control noise sweeps across the v7 best model and a diagnosis of where and how the policy breaks down under perturbation.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 05 &nbsp;/&nbsp; MARCH 31, 2025<br>
+      SENIOR PROJECT / ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 6: Robustness to Perturbations</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+
+</body>
+</html>
