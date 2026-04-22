@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 6: Four Runs, Three Failures, One Fix | Senior Project Blog</title>
+  <meta name="blog-title" content="Four Runs, Three Failures, One Fix">
+  <meta name="blog-date" content="April 7, 2026">
+  <meta name="blog-week" content="Week 6">
+  <meta name="blog-description" content="Building robustness through noise injection, then untangling why training kept breaking.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 6 &nbsp;·&nbsp; April 7, 2026</div>
+    <h1 class="hero-title">Four Runs, Three Failures,<br><em>One Fix</em></h1>
+    <p class="hero-sub">
+      Building robustness through noise injection, then untangling why training kept breaking.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:400px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#e2ac7a;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> Where We Left Off</h2>
+
+    <p>
+      Welcome back. Last week, the agent finally learned to execute a clean two-burn Hohmann transfer. The v7 model reached the target orbit with under 1.3% SMA error across all evaluation episodes, with two clearly concentrated burns at periapsis and apogee. That was a perliminary answer to the first half of the research question: can an RL agent learn the right orbital maneuver strategy? The second half is more demanding: does the policy hold up when the environment is no longer clean?
+    </p>
+
+    <p>
+      Real spacecraft navigate with imperfect components and unmodeled forces. This week I built a five-channel perturbation system to inject all of that into training, then ran four training campaigns to understand what it takes to produce a policy that is both accurate and robust.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 6 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/env_config.py</div>
+          <div class="re-author">PerturbationConfig dataclass: 5 channels, default parameters, master enable switch</div>
+        </div>
+        <div class="re-note">New config</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/hohmann_env.py</div>
+          <div class="re-author">_apply_actuation_noise(), _set_dynamics_noise(), _clear_dynamics_noise(), obs noise in _get_obs()</div>
+        </div>
+        <div class="re-note">Perturbation implementation</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_train.py</div>
+          <div class="re-author">--anneal-lr flag (default ON), lr/clip_range linear schedules, --clean flag</div>
+        </div>
+        <div class="re-note">Training changes</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_montecarlo.py</div>
+          <div class="re-author">Monte Carlo evaluation: N stochastic episodes, Wilson CI success rate, 4-panel output plot</div>
+        </div>
+        <div class="re-note">New script</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">tests/test_perturbations.py</div>
+          <div class="re-author">22 tests covering each channel individually, combined, and interaction checks</div>
+        </div>
+        <div class="re-note">New test module</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">Training runs v8, v9, v10, v11</div>
+          <div class="re-author">10M timesteps each; 3 failed before v11; progressively tightened the training config</div>
+        </div>
+        <div class="re-note">Results</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> Five Ways to Break a Spacecraft</h2>
+
+    <p>
+      The perturbation system follows the framework from Federici et al. (2020), adapted for the Basilisk simulation. The idea is to inject realistic uncertainty into every layer of the spacecraft-environment interface so that the trained policy learns to handle noise as a permanent feature of the world rather than an occasional nuisance.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 1: Observation Noise</h3>
+
+    <p>
+      Gaussian noise is added to the raw position and velocity measurements before any other computation happens. Everything the agent observes, including the derived semi-major axis, eccentricity, and true anomaly, is computed from those noisy measurements. Position noise is $\sigma = 500$ m and velocity noise is $\sigma = 0.5$ m/s, calibrated to ground-tracking accuracy for low Earth orbit. At a typical orbital radius of 7,000 km, 500 m is about 0.007% of the orbital radius, so it barely affects any single observation but creates enough cumulative uncertainty to matter.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Why Noise Must Propagate to Orbital Elements</span>
+      <p>
+        An earlier version of the observation noise added Gaussian offsets directly to the normalized position and velocity terms in the observation vector, but computed the semi-major axis, eccentricity, and true anomaly from the true, noiseless state. This is not physically correct. A real navigation system derives orbital elements from sensor measurements, not from ground truth. Fixing this so that all 16 observation components derive from the same noisy position and velocity vectors makes the uncertainty self-consistent: the agent cannot know its true anomaly any more precisely than its position.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 2: Actuation Magnitude Noise</h3>
+
+    <p>
+      The commanded burn fraction is multiplied by a factor drawn from $\mathcal{N}(1, \sigma=0.05)$, clipped to $\pm 10\sigma$. A 5% thruster magnitude uncertainty means a commanded full burn might deliver anywhere from 95% to 105% of the nominal thrust. Both the simulation and the fuel accounting use the perturbed value, so the agent cannot rely on its commands being executed exactly.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 3: Actuation Pointing Noise</h3>
+
+    <p>
+      Even if the thruster fires at exactly the commanded duration, the attitude controller is not perfect. The burn fraction is additionally multiplied by $\cos(\theta_\text{err})$ where $\theta_\text{err} \sim \mathcal{N}(0, 1°)$. At 1° the efficiency loss is under 0.02%, negligible for any single burn. Over 40 steps, and combined with the other channels, the agent experiences a consistent slight underperformance relative to what it commanded.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 4: Dynamics Noise</h3>
+
+    <p>
+      Before each simulation step, a random inertial force is injected via a dedicated force effector in Basilisk and then zeroed immediately after the step completes. The force magnitude per axis is drawn from $\mathcal{N}(0, m \cdot \sigma_{dv} / \Delta t)$ where $\sigma_{dv} = 1$ m/s, giving each step a random velocity perturbation of roughly 1 m/s per axis. This represents the aggregate of unmodeled higher-order gravity, solar radiation pressure, and atmospheric drag residuals. It is calibrated to be much larger than the real noise level so that training is actively challenging.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 5: Missed Thrust Events (MTEs)</h3>
+
+    <p>
+      At each decision step, with some probability, the burn command is silently zeroed regardless of what the agent sent. This models a thruster command dropout or a discrete failure. The event counter is capped per episode. I started with a 5% probability (about 2 missed burns per episode expected) and later reduced it to 2% (about 0.8 missed burns per episode), which matches a realistic 99% thruster reliability rate. This change had a much larger effect on training than expected, and I will come back to it.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Channel 6: J2 Gravity</h3>
+
+    <p>
+      Optionally, the point-mass Earth model is replaced with a degree-2 spherical harmonics model using the GGM03S gravity coefficients. J2 is the dominant perturbation for low Earth orbit, responsible for nodal precession of roughly 1 km per orbit for the orbit altitudes used here. Basilisk downloads the coefficient file automatically on first use and caches it locally.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">500 m</span>
+        <span class="stat-label">Position noise σ (ground tracking accuracy)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5%</span>
+        <span class="stat-label">Thruster magnitude uncertainty σ</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">2%</span>
+        <span class="stat-label">Missed thrust probability per step (realistic rate)</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> v8: Training Under Perturbations</h2>
+
+    <p>
+      v8 was the first run with all five perturbation channels active. It used the same PPO hyperparameters as v7 (ent_coef=0.015, clip_range=0.1) but trained in a perturbed environment where the agent never experiences clean physics. After training for 10 million steps across 14 parallel environments, the training curve climbed to a peak reward of roughly 185 and stayed there.
+    </p>
+
+    <p>
+      v7, the clean-physics model from last week, peaked at 192 at 8.4 million steps and then collapsed catastrophically at 9.85 million, ending at around 28. The perturbed v8 model not only recovered less than v7 at its peak but held on throughout with no collapse. At the time, the stability looked like a benefit of training under noise. The actual explanation emerged only after looking at v9 and v10.
+    </p>
+
+    <img
+      src="/traj_v8.png"
+      alt="v8 evaluation trajectories: orbital SMA reaches target with spread burns due to 5% missed-thrust training"
+      style="width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      v8 evaluation trajectories under perturbations. All episodes reach the target orbit, but the burn command panel shows energy spread across multiple steps rather than two sharp pulses.
+    </p>
+
+    <p>
+      The trajectories tell a more mixed story. v8 reaches the target orbit reliably, but the burn commands are smeared across many steps rather than concentrated at the two Hohmann nodes. Compared to v7's clean two-pulse structure, v8 looks like it is hedging, distributing thrust across a wider window rather than committing to a single decisive burn at each location.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">Why v8 Hedged</span>
+      <p>
+        With a 5% missed-thrust probability, the agent expected roughly 2 out of 40 burns to silently fail. That led to the agent betting that if any single burn might be zeroed, spreading the total delta-v across multiple steps means one missed burn hurts less. The policy is rational under its training distribution, but that distribution was set too aggressively. If we set a 99% reliability, the thruster should miss roughly 0.8 burns per episode, not 2.
+      </p>
+    </div>
+
+    <p>
+      I also built a Monte Carlo evaluation script this week to measure performance statistically rather than just plotting 20 episodes. The script runs N independently-seeded stochastic episodes, reports a success rate with a 95% Wilson confidence interval, and produces histograms of SMA error, fuel use, and reward. Under a 100-run evaluation, v8 shows strong success rates under perturbations, particularly compared to v7 which was never trained to handle noise.
+    </p>
+
+    <img
+      src="/mc_v8.png"
+      alt="Monte Carlo comparison: v8 robust model vs v7 clean model under perturbations"
+      style="width:100%; border-radius:6px; border:1px solid rgba(99,133,255,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      100-run Monte Carlo evaluation comparing v8 (perturbation-trained) against v7 (clean-trained) under live perturbations. Success rate, SMA error distribution, fuel use, and reward distribution.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> v9 and v10: Two Failures, Two Diagnoses</h2>
+    <p>
+      First, the observation noise fix described above: noise now propagates from raw position and velocity into all derived orbital elements. This is strictly more correct than the previous formulation.
+    </p>
+
+    <p>
+      Second, the missed-thrust probability was reduced from 5% to 2%. At 5%, the agent expected roughly 2 missed burns across a 40-step episode. At 2%, it expects 0.8. The rate of 2% corresponds to 99% thruster reliability, which is a reasonable real-world figure. The 5% rate was chosen for training convenience rather than physical accuracy.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Old defaults</span><br>
+      mte_prob = 0.05  <span class="comment"># 5% per step → ~2 missed burns expected per episode</span><br>
+      mte_max  = 3     <span class="comment"># cap at 3 per episode</span><br>
+      <br>
+      <span class="comment"># New defaults</span><br>
+      mte_prob = 0.02  <span class="comment"># 2% per step → ~0.8 missed burns expected per episode</span><br>
+      mte_max  = 2     <span class="comment"># cap at 2 per episode; P(≥3) < 1.5% at 2% per step</span>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">v9: The MTE-Entropy Coupling</h3>
+
+    <p>
+      v9 used the corrected obs noise and 2% MTE, with ent_coef=0.015 carried over from v8. The run peaked at 174 around 2.3 million steps and then collapsed to negative reward in about 50,000 steps, spending the remaining 7.7 million steps producing essentially nothing.
+    </p>
+
+    <p>
+      The root cause is a coupling between missed-thrust rate and entropy. In v8, every step had a 5% chance of randomly zeroing the action, which means even a near-deterministic policy experienced substantial reward variance from episode to episode. This variance acts like implicit entropy regularisation, keeping the policy stochastic at the level of training outcomes, supplementing the explicit ent_coef term. With 14 parallel environments and 5% MTE, roughly 87% of episodes experienced at least one action override, making the policy's effective exploration level much higher than ent_coef=0.015 alone would produce.
+    </p>
+
+    <p>
+      At 2% MTE, only about 55% of episodes have any missed thrust event. The training environment is roughly 2.5 times less stochastic. The policy converged to a sharp strategy much faster, reaching peak reward at 2.3 million steps instead of v8's 7.2 million, and that fast convergence led immediately to entropy death. Once the policy became too deterministic, small policy updates could not push it out of the local basin, and the basin it settled into turned out not to be the global optimum.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">v10: The Constant Learning Rate Problem</h3>
+
+    <p>
+      The diagnosis of v9 suggested raising ent_coef to compensate for the reduced MTE stochasticity. v10 raised it from 0.015 to 0.025. The training curve rose to around 177 reward, but instead of collapsing, it began oscillating. Over the next 5 million steps, the reward flipped 12 times between the good basin at around 177 and the bad basin at around 25, eventually getting trapped permanently in the bad basin around 7.5 million steps.
+    </p>
+
+    <p>
+      This failure mode is different from v9's. v10 found the good basin repeatedly but could not stay there. The reason is that PPO updates the policy by a fixed step size regardless of where in training the policy currently is. At 1 million steps the policy has a lot to learn, and a step size of 3e-4 is appropriate. At 7 million steps the policy is near-optimal, and the same update magnitude is large enough to knock the policy off the narrow reward peak entirely. With ent_coef=0.025 actively trying to spread the action distribution, the combination of a non-decaying learning rate and a high entropy coefficient produced a machine that oscillated the policy in and out of the good basin every 600,000 steps until it eventually lost the path back.
+    </p>
+
+    <!-- ─── Reward curve SVG ─── -->
+    <div style="margin:2rem 0;">
+      <svg viewBox="0 0 640 290" xmlns="http://www.w3.org/2000/svg" style="width:100%; border-radius:6px; background:#060814; border:1px solid rgba(99,133,255,.2); display:block;">
+        <defs>
+          <clipPath id="plotArea6">
+            <rect x="70" y="15" width="520" height="220"/>
+          </clipPath>
+        </defs>
+
+        <!-- grid lines -->
+        <line x1="70" y1="15"  x2="590" y2="15"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="57"  x2="590" y2="57"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="99"  x2="590" y2="99"  stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="141" x2="590" y2="141" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="183" x2="590" y2="183" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="70" y1="225" x2="590" y2="225" stroke="rgba(99,133,255,.08)" stroke-width="1"/>
+        <line x1="174" y1="15" x2="174" y2="235" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="278" y1="15" x2="278" y2="235" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="382" y1="15" x2="382" y2="235" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="486" y1="15" x2="486" y2="235" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+        <line x1="590" y1="15" x2="590" y2="235" stroke="rgba(99,133,255,.06)" stroke-width="1"/>
+
+        <!-- axes -->
+        <line x1="70" y1="235" x2="590" y2="235" stroke="rgba(99,133,255,.4)" stroke-width="1.5"/>
+        <line x1="70" y1="15"  x2="70"  y2="235" stroke="rgba(99,133,255,.4)" stroke-width="1.5"/>
+
+        <!-- y=0 line -->
+        <line x1="70" y1="183" x2="590" y2="183" stroke="rgba(99,133,255,.2)" stroke-width="1" stroke-dasharray="4 4"/>
+
+        <!-- Y ticks: scale: y = 183 - reward*0.84  (so reward=200→y=15, reward=0→y=183, reward=-50→y=225) -->
+        <text x="62" y="19"  text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">200</text>
+        <text x="62" y="61"  text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">150</text>
+        <text x="62" y="103" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">100</text>
+        <text x="62" y="145" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">50</text>
+        <text x="62" y="187" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0</text>
+        <text x="62" y="229" text-anchor="end" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">-50</text>
+        <text x="12" y="125" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.1em" transform="rotate(-90,12,125)">MEAN REWARD</text>
+
+        <!-- X ticks: x = 70 + steps/10e6 * 520 -->
+        <text x="70"  y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">0</text>
+        <text x="174" y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">2M</text>
+        <text x="278" y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">4M</text>
+        <text x="382" y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">6M</text>
+        <text x="486" y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">8M</text>
+        <text x="590" y="249" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9">10M</text>
+        <text x="330" y="268" text-anchor="middle" fill="#6474a0" font-family="Space Mono, monospace" font-size="9" letter-spacing="0.12em">TRAINING STEPS</text>
+
+        <!-- ─── v8 (glow blue, stable) ─── -->
+        <!-- gradual rise, stable at ~185: y(185) = 183 - 185*0.84 = 183-155.4 = 27.6 ≈ 28 -->
+        <polyline clip-path="url(#plotArea6)"
+          fill="none" stroke="#4a6aff" stroke-width="2"
+          points="
+            70,183
+            96,170
+            122,140
+            148,98
+            174,65
+            200,50
+            226,42
+            252,38
+            278,34
+            304,31
+            330,30
+            356,29
+            382,29
+            408,29
+            434,28
+            460,29
+            486,29
+            512,28
+            538,29
+            564,28
+            590,28
+          "
+        />
+        <circle cx="444" cy="28" r="3" fill="#4a6aff"/>
+
+        <!-- ─── v9 (orange-red, fast rise then collapse) ─── -->
+        <!-- peak y(174) = 183 - 174*0.84 = 183 - 146.2 = 36.8 ≈ 37 at x=190 (2.3M) -->
+        <!-- collapse to y(-6.6) = 183 - (-6.6)*0.84 = 183+5.5 = 188.5 ≈ 189 -->
+        <polyline clip-path="url(#plotArea6)"
+          fill="none" stroke="#e05c3a" stroke-width="2"
+          points="
+            70,183
+            96,160
+            122,105
+            148,55
+            174,42
+            190,37
+            200,80
+            216,150
+            226,189
+            252,190
+            278,189
+            330,190
+            382,189
+            434,190
+            486,189
+            538,190
+            590,189
+          "
+        />
+        <!-- peak annotation -->
+        <circle cx="190" cy="37" r="4" fill="#e05c3a"/>
+        <text x="196" y="33" fill="#e05c3a" font-family="Space Mono, monospace" font-size="8">peak 174 @ 2.3M</text>
+        <!-- collapse annotation -->
+        <line x1="200" y1="80" x2="200" y2="235" stroke="#e05c3a" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.4"/>
+        <text x="204" y="232" fill="#e05c3a" font-family="Space Mono, monospace" font-size="8" opacity="0.7">collapse</text>
+
+        <!-- ─── v10 (gold, oscillates) ─── -->
+        <!-- y(177) = 183 - 177*0.84 = 183 - 148.7 = 34.3 ≈ 34 -->
+        <!-- y(25)  = 183 - 25*0.84  = 183 - 21   = 162 -->
+        <!-- 12 oscillations over ~5.5M steps (1.5M to 7.5M) → cycle ~460k steps, x-width ~24px per cycle -->
+        <polyline clip-path="url(#plotArea6)"
+          fill="none" stroke="#f0b155" stroke-width="1.5" stroke-opacity="0.85"
+          points="
+            70,183
+            96,165
+            122,115
+            148,55
+            174,37
+            200,34
+            225,162
+            252,34
+            278,162
+            305,34
+            330,162
+            357,34
+            382,162
+            408,36
+            434,162
+            460,162
+            486,165
+            512,163
+            538,165
+            564,164
+            590,166
+          "
+        />
+        <!-- stuck annotation -->
+        <line x1="460" y1="162" x2="460" y2="235" stroke="#f0b155" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.4"/>
+        <text x="462" y="232" fill="#f0b155" font-family="Space Mono, monospace" font-size="8" opacity="0.7">stuck</text>
+
+        <!-- legend -->
+        <rect x="390" y="22" width="192" height="56" rx="3" fill="#060814" fill-opacity="0.85" stroke="rgba(99,133,255,.2)" stroke-width="1"/>
+        <line x1="400" y1="37" x2="424" y2="37" stroke="#4a6aff" stroke-width="2"/>
+        <text x="430" y="41" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v8 (5% MTE, ent=0.015)</text>
+        <line x1="400" y1="52" x2="424" y2="52" stroke="#e05c3a" stroke-width="2"/>
+        <text x="430" y="56" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v9 (2% MTE, ent=0.015)</text>
+        <line x1="400" y1="67" x2="424" y2="67" stroke="#f0b155" stroke-width="1.5" stroke-opacity="0.85"/>
+        <text x="430" y="71" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="9" opacity="0.85">v10 (2% MTE, ent=0.025)</text>
+
+        <!-- title -->
+        <text x="330" y="12" text-anchor="middle" fill="#c9d4f0" font-family="Space Mono, monospace" font-size="10" letter-spacing="0.12em">TRAINING REWARD: v8 / v9 / v10</text>
+      </svg>
+      <p style="font-size:.82rem; color:var(--muted); margin-top:.5rem; text-align:center;">
+        Mean episode reward over 10M training steps. v8 is stable; v9 peaks at 174 and collapses in 50k steps; v10 oscillates 12 times between ~177 and ~25 before getting trapped in the bad basin after 7.5M steps.
+      </p>
+    </div>
+
+    <div class="hypo-panel">
+      <h3>// v8 Was Not Stable for the Right Reasons //</h3>
+      <p>
+        The retrospective analysis of v9 reveals that v8's stability was a side effect of its unrealistically high missed-thrust rate. With 5% MTE, the training environment provided implicit entropy regularisation through random action overrides. The policy could not converge too fast even if it tried, because 87% of episodes had at least one external disturbance to its action. v8 is a useful baseline model for robustness comparisons, but its spread-burn strategy is an artefact of 5% MTE rather than a proper solution.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> The Fix: Learning Rate Annealing</h2>
+
+    <p>
+      The root cause shared by both v9 and v10 is a learning rate that never decreases. In v9, a constant LR allowed fast convergence to a sharp, brittle policy. In v10, a constant LR applied update steps of equal size at step 7 million (where the policy was near-optimal) as at step 1 million (where the policy had little learned). The fix is linear annealing: both the learning rate and the PPO clip range decay linearly from their initial values to zero over the full training run.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Annealing schedule (progress_remaining goes from 1.0 → 0.0)</span><br>
+      lr_schedule   = lambda f: 3e-4 × f   <span class="comment"># 3e-4 at step 0 → 0 at step 10M</span><br>
+      clip_schedule = lambda f: 0.10  × f  <span class="comment"># 0.10 at step 0 → 0 at step 10M</span><br>
+      <br>
+      <span class="comment"># Effective LR at 7M steps: 3e-4 × (3/10) = 9e-5</span><br>
+      <span class="comment"># Same update that destabilised v10 is now 3× smaller</span>
+    </div>
+
+    <p>
+      By 7 million steps, the effective learning rate is 9e-4, three times smaller than the value that caused v10's oscillations. Entropy noise of magnitude ent_coef=0.015 can no longer generate gradient steps large enough to cross the basin boundary. The clip range annealing has the same effect on the PPO policy ratio constraint, tightening the allowed policy change as the policy matures.
+    </p>
+
+    <p>
+      With LR annealing handling late-training stability, there is no longer a need to push ent_coef up to 0.025 as a substitute. Dropping back to 0.015 produces a sharper action distribution, which means more concentrated burns at the two optimal nodes rather than the diffuse spread-burn strategy that v10's high entropy coefficient enforced.
+    </p>
+
+    <p>
+      This is standard practice in deep RL, used in the original OpenAI Atari PPO runs. Without annealing, a near-optimal policy is continuously subjected to destabilising gradient updates, which makes late-training collapse or oscillation nearly inevitable for any environment with a sharp reward landscape.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">ent_coef, MTE, and Learning Rate</span>
+      <p>
+        These three variables are not independent. MTE determines how much implicit stochasticity the environment provides during training; ent_coef adds explicit entropy pressure; LR annealing controls how much any single update can move the policy. v8 worked because 5% MTE provided a lot of implicit stochasticity, making ent_coef=0.015 sufficient. v9 reduced MTE to 2% without raising ent_coef to compensate. v10 raised ent_coef to 0.025 without fixing the underlying LR problem. v11 reduces ent_coef back to 0.015 and lets LR annealing handle the stability that was previously provided by either a high MTE rate or a high entropy coefficient.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> v11: Annealed Training</h2>
+
+    <p>
+      v11 uses ent_coef=0.015, LR annealing on by default, 2% MTE, physically-consistent observation noise propagation, and all five perturbation channels active. As a result, we end up with v8 but with burns that are more concentrated at the two Hohmann nodes rather than diffused across the episode.
+    </p>
+
+    <img
+      src="/traj_v11.png"
+      alt="v11 evaluation trajectories: two concentrated burns with LR annealing and 2% MTE"
+      style="width:100%; border-radius:6px; border:1px solid rgba(240,177,85,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      v11 evaluation trajectories under perturbations. The burn command panel shows tighter, more concentrated pulses than v8, closer to the two-burn Hohmann structure that v7 demonstrated in clean physics.
+    </p>
+
+    <p>
+      The key question v11 answers is whether a policy can simultaneously be robust to perturbations and execute a clean two-burn strategy. v7 achieved clean burns but on clean physics. v8 achieved robustness but at the cost of a hedged, diffuse burn structure. The combination of LR annealing and realistic 2% MTE gives the agent a training environment that is noisy without over-regularising the action distribution, and the trajectory plots show the tighter burns near the correct orbital locations.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.05rem;">v8</span>
+        <span class="stat-label">Peak ~185 @ 7.2M<br>Stable, hedged burns</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.05rem;">v9</span>
+        <span class="stat-label">Peak 174 @ 2.3M<br>Collapsed to −6.6</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.05rem;">v10</span>
+        <span class="stat-label">Peaks ~177<br>12 oscillations, stuck</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" style="font-size:1.05rem;">v11</span>
+        <span class="stat-label">LR annealing ON<br>Concentrated burns</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> What Comes Next</h2>
+
+    <p>
+      The Hohmann transfer problem for Earth orbit is essentially solved. The agent discovers the correct two-burn strategy, generalises across randomised orbit sizes within the MEO band, and remains robust under realistic sensor noise, thruster uncertainty, and unmodeled forces. There is still room to characterise v11 further through Monte Carlo runs across different noise levels, but the core problem is understood.
+    </p>
+
+    <p>
+      The natural next challenge is a longer-range transfer. An Earth-to-Mars Hohmann transfer shares the same mathematical structure with two impulsive burns, one to exit Earth's heliocentric orbit and one to match Mars's, with a coast arc spanning roughly 260 days in between; however, the simulation timescale changes from hours to months and the target is a moving body rather than a fixed orbital altitude.
+    </p>
+
+    <p>
+      The question I am most curious about is whether the same reward design, specifically the doubly-quadratic location bonus that teaches the agent to burn at periapsis and apogee, transfers directly to the interplanetary case. In the Earth-orbit setting, periapsis and apogee have fixed geometric meanings relative to the orbit. In the interplanetary case, the departure burn must happen at the right point in Earth's orbit around the Sun, and the arrival burn must happen at the right point in the transfer ellipse, which is determined by the relative positions of Earth and Mars at launch. Whether the reward shaping can guide the agent to discover the correct departure and arrival windows autonomously is the central experiment for next week.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 06 &nbsp;/&nbsp; APRIL 7, 2025<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 7: Earth to Mars</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+<script src="orbit.js"></script>
+
+</body>
+</html>
