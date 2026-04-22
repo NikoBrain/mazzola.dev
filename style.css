@@ -86,7 +86,7 @@ strong { color: var(--bright); }
 
 /* ───────── HERO ───────── */
 .hero {
-  padding: 6rem 0 4rem;
+  padding: 6rem 0 1rem;
   text-align: left;
 }
 
@@ -326,7 +326,7 @@ p { margin-bottom: 1.2rem; }
 .orbit-container {
   position: relative;
   width: 100%;
-  height: 300px;
+  height: 400px; /* fallback; orbit.js overrides with the largest --size value */
   margin: 2.5rem 0;
   display: flex;
   align-items: center;
