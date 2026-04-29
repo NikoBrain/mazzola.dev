@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 7: Earth to Mars | Senior Project Blog</title>
+  <meta name="blog-title" content="Earth to Mars">
+  <meta name="blog-date" content="April 21, 2026">
+  <meta name="blog-week" content="Week 7">
+  <meta name="blog-description" content="Rebuilding the simulator around a moving planet, then running into a ceiling that tuning cannot fix.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 7 &nbsp;·&nbsp; April 21, 2026</div>
+    <h1 class="hero-title">Earth to <em>Mars</em></h1>
+    <p class="hero-sub">
+      Rebuilding the simulator around a moving planet, then running into a ceiling that tuning cannot fix.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:400px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#e2ac7a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:500px; --speed:25s; --dir:reverse">
+      <div class="orbit-dot" style="--dot:#ada00e;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> Where We Left Off</h2>
+
+    <p>
+      Welcome back. Last week closed out the Earth-orbit problem by producing a robust two-burn Hohmann policy that held up under observation noise and thruster uncertainty. The research question for the rest of the project is whether the same can scale to a longer and more demanding transfer, so this week I rebuilt the simulator around an Earth-to-Mars trajectory and ran the first training campaign on the new environment.
+    </p>
+
+    <p>
+      The target policy is structurally similar with a Trans-Mars Injection burn at the right moment in Earth's orbit, a coast arc of roughly 259 days, then a correction phase that steers the spacecraft toward Mars's actual position at arrival. The implementation is almost entirely new as almost nothing from the Hohmann environment survived unchanged.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 7 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/mars_transfer_env.py</div>
+          <div class="re-author">New 952-line Gymnasium env: heliocentric frame, moving planets, two-phase episode, 18D observation</div>
+        </div>
+        <div class="re-note">New environment</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/env_config.py</div>
+          <div class="re-author">InterplanetaryConfig dataclass: launch window geometry, departure/arrival planet parameters, phase step budgets</div>
+        </div>
+        <div class="re-note">New config</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/bsk_utils.py</div>
+          <div class="re-author">build_interplanetary_simulation(): Sun-centred sim with Earth + Mars as gravity bodies driven by writable state messages</div>
+        </div>
+        <div class="re-note">BSK builder</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_train.py, main_validate.py, main_montecarlo.py</div>
+          <div class="re-author">Unified behind an --env flag so the Earth and Mars envs share the same training, evaluation, and MC pipeline</div>
+        </div>
+        <div class="re-note">Shared scripts</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">tests/test_mars_env.py</div>
+          <div class="re-author">35 new tests covering the Gymnasium contract, heliocentric physics, reward components, and full-episode survival</div>
+        </div>
+        <div class="re-note">New test module</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/mars_v2, mars_v3, mars_v5, mars_v11</div>
+          <div class="re-author">Four training campaigns diagnosing departure-burn incentive design; v11 is the first converged model (~335 reward, 100% arrival)</div>
+        </div>
+        <div class="re-note">Results</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> A Different Gravity Problem</h2>
+
+    <p>
+      In the Hohmann env, Earth was front and center. The spacecraft orbited a single point mass and every position was measured from Earth's center. For an interplanetary transfer that frame is wrong. The spacecraft is in a parking orbit around Earth, but Earth itself is orbiting the Sun at 29.78 km/s, which is roughly four times the spacecraft's orbital speed around Earth. Ignoring that motion and placing Earth at a fixed point produces a simulation that is inconsistent with itself the moment the spacecraft leaves low orbit.
+    </p>
+
+    <p>
+      The new simulator uses a Sun-centred inertial frame. The Sun sits at the origin with the Earth and Mars modelled as gravity bodies orbiting it on circular paths. Basilisk exposes each planet's state through a <code>SpicePlanetStateMsg</code>, which is normally populated by a SPICE ephemeris file but can also be written directly. I take the second approach: at every simulation sub-step the environment computes each planet's position and velocity from its circular-orbit parameters and writes them into the message.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Circular-orbit planet state at simulation time t</span><br>
+      $$\theta(t) = \theta_0 + \omega t, \quad \omega = v_{\text{helio}} / r_{\text{helio}}$$<br>
+      $$\vec{r}_{\text{planet}}(t) = r_{\text{helio}}[\cos\theta,\,\sin\theta,\,0]$$<br>
+      $$\vec{v}_{\text{planet}}(t) = v_{\text{helio}}[-\sin\theta,\,\cos\theta,\,0]$$
+    </div>
+
+    <p>
+      Refreshing planet positions at every sub-step rather than once per decision step matters during the departure phase. Earth moves about 8.9 million metres in a single 300-second decision step while the parking-orbit radius is 7 million metres so astale Earth position would warp the LEO dynamics by more than the radius of the orbit itself, so the planet-state write happens inside every 10-second burn sub-step and at every coast-chunk boundary.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The 104-Day Clock</h3>
+
+    <p>
+      Basilisk tracks simulation time as an int64 count of nanoseconds, which overflows at roughly $2^{63} / 10^9 \approx 9.2 \times 10^9$ seconds. That is more than two centuries in real time, but the internal API for time conversion uses a smaller accumulator that overflows at around 104 days. A full Earth-to-Mars episode needs roughly 337 days of simulated time (the 259-day Hohmann coast plus margin for the agent to arrive late), which is more than three times that limit.
+    </p>
+
+    <p>
+      The fix is to chunk the coast phases into segments no longer than 85 days each. At the end of each chunk the environment pulls the current spacecraft position and velocity out of the simulator, tears the Basilisk simulation down, and rebuilds it from the saved state with the time accumulator reset to zero. This is invisible to the RL agent as the observation it receives the moment before the rebuild and the one it receives the moment after are identical.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Launch Window</h3>
+
+    <p>
+      In a real Hohmann-type transfer to Mars, the departure moment is chosen so that Mars will be at the spacecraft's aphelion when the spacecraft arrives there. The geometric condition is:
+    </p>
+
+    <div class="formula-box">
+      $$\theta_{\text{Mars}}(0) \;=\; \theta_{\text{Earth}}(0) + \pi - \omega_{\text{Mars}} T_{\text{Hohmann}}$$
+      <span class="comment"># Mars has to "lag" by exactly the angle it will sweep during transit</span>
+    </div>
+
+    <p>
+      With $T_{\text{Hohmann}} \approx 259$ days and Mars's orbital rate of about 0.524°/day, Mars starts the episode roughly 44° ahead of Earth in its orbit, and by the time the spacecraft has traced half an ellipse around the Sun, Mars will have swept forward to the meeting point. Every episode resets to this ideal geometry, which keeps the problem clean for first-run training.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Two Phases at Two Scales</h2>
+
+    <p>
+      The biggest challenge is the scale mismatch between the departure burn and the coast arc. The Trans-Mars Injection burn is a few minutes long and has to hit a precise point in a 90-minute LEO orbit. The coast lasts nine months. Using a single time resolution for both wastes computation if it is fine enough for the departure, and makes the departure unsolvable if it is coarse enough for the coast.
+    </p>
+
+    <p>
+      The episode is split into two phases with independent step durations. Phase 0 covers Earth departure at $\Delta t = 300$ s, giving 40 decision steps across roughly 3.3 hours. Phase 1 covers heliocentric transit and Mars approach at $\Delta t \approx 3.4$ days, giving 100 decision steps across the full 336-day transfer. The agent sees a single continuous episode of 140 steps and a single 18-dimensional observation vector; only the internal integrator timescale changes.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">300 s</span>
+        <span class="stat-label">Phase 0 decision step (LEO departure)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">3.4 d</span>
+        <span class="stat-label">Phase 1 decision step (heliocentric transit)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">140</span>
+        <span class="stat-label">Total decision steps per episode</span>
+      </div>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Departure: Geocentric Prograde</h3>
+
+    <p>
+      Phase 0 burns apply thrust along the spacecraft's velocity relative to Earth, using the geocentric frame instead of the heliocentric one. This is the direction that makes the Oberth effect work during escape from Earth's gravity well. The thruster force is raised to 4 kN (the Earth-orbit env used 1 kN) so that a full-duration Phase 0 burn delivers up to 1440 m/s of $\Delta v$. The theoretical TMI requirement is roughly 3526 m/s, so 2 to 3 aligned full burns suffice, which fits comfortably inside a single LEO orbit pass.
+    </p>
+
+    <p>
+      A lower thrust setting is actually worse for this problem. At 2 kN, the same burn magnitude needs 5 or more steps, and each burn stretches the orbit slightly so the next periapsis arrives later in the episode than the previous one. The agent never sees the same periapsis twice, making it hard to learn the timing pattern. At 4 kN all the necessary $\Delta v$ can be delivered inside one periapsis window, so the agent only has to learn the single correct moment to fire.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">The Alignment Observation</span>
+      <p>
+        The observation vector includes a scalar <em>tmi_align</em> term, defined as $\max(0, \hat{v}_{\text{geo}} \cdot \hat{v}_{\text{Earth}})$. It is 1 when the spacecraft's geocentric velocity points directly along Earth's heliocentric velocity (the Oberth-optimal moment) and 0 when they are perpendicular or anti-parallel. This tells the agent directly how aligned the current moment is for an escape burn, without having to infer it from the raw position and velocity vectors. Every tested training run that omitted this term failed to discover the correct timing within 10 million steps.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Transit: Cross-Track Corrections</h3>
+
+    <p>
+      Once the spacecraft has escaped Earth's sphere of influence, the dynamics flip. The Sun becomes the primary gravitational body, Earth becomes a point moving away in the background, and the agent's remaining job is to steer toward Mars's arrival position. Burns here are small (capped at 14.5 s per step for roughly 89 m/s) and are applied in the cross-track direction: the component of the spacecraft-to-Mars vector perpendicular to the current heliocentric velocity.
+    </p>
+
+    <p>
+      Cross-track was chosen over a "burn toward Mars" heuristic because Mars is roughly 9° ahead of the spacecraft's velocity vector at arrival. A burn pointed at Mars would put 99% of its $\Delta v$ along the velocity direction, adding orbital energy and pushing the aphelion past Mars. The cross-track projection rotates the orbit's orientation while leaving its energy untouched, which in principle lets the agent correct for departure direction errors without overshooting. I will come back to this choice in the last section.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Reward Design for a 140-Step Episode</h2>
+
+    <p>
+      The Hohmann reward recipe from last month does not transfer directly. The agent has to solve two different sub-problems, and the signals that worked for a 40-step episode fire too sparsely to drive learning across a 140-step one. The Mars reward has four shaping terms plus a terminal component.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Alignment-Weighted Departure Bonus</h3>
+
+    <p>
+      Phase 0 needs its own positive signal because the distance-to-Mars shaping is essentially flat while the spacecraft is still inside Earth's sphere of influence. The bonus rewards mass burned during departure, weighted by alignment:
+    </p>
+
+    <div class="formula-box">
+      $$r_{\text{depart}} = \frac{\Delta m}{m_0} \times (\text{base} + \text{scale} \times \text{tmi\_align}^2) + r_{\text{fuel}}$$<br>
+      <span class="comment"># With base = 0, scale = 200, fuel_scale = 50:</span><br>
+      <span class="comment"># Net per burn = Δm/m₀ × (200 × align² − 50)</span><br>
+      <span class="comment"># Breakeven at align ≈ sqrt(50/200) = 0.50</span>
+    </div>
+
+    <p>
+      The first three Mars training runs (v2, v3, v5) all failed at this term. v2 had no departure bonus and the agent simply coasted for every episode. v3 added a flat per-burn bonus and the agent burned at every step regardless of alignment, wasting fuel on retrograde kicks. v5 used a bonus that scaled linearly with alignment, which was still net-positive at alignments below 0.5 and produced the same unselective behaviour. v11 uses the quadratic alignment weight with a base of zero, which gives the agent the choice where burns at alignment below 0.50 cost more fuel than they earn, burns above 0.50 are profitable, and the optimal moment (alignment near 1.0) dominates everything else.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">Why Random Initial Exploration Still Works</span>
+      <p>
+        A breakeven at alignment 0.50 raises the question of whether random Phase 0 burns produce enough positive samples to bootstrap learning. Roughly half of Phase 0 timesteps have the spacecraft in the prograde half of its LEO orbit, so about 50% of random burns land above breakeven. That is enough for the value function to notice a correlation between high alignment and positive reward within the first 100,000 steps, which is what v11's training curve shows.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Distance-to-Mars Potential</h3>
+
+    <p>
+      The heliocentric shaping term is a potential-based function on the distance to Mars, normalised by the initial distance. It follows the Ng et al. (1999) framework from Week 5, which keeps the optimal policy unchanged while supplying a dense gradient. Closing the gap earns positive reward at every step, widening it costs the same reward, and the per-step magnitude is small enough not to overwhelm the departure bonus during Phase 0.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Graded Terminal Bonus</h3>
+
+    <p>
+      A 20 million kilometre success threshold (0.134 AU, chosen from the oracle's empirical 7-10 Mkm achievable closest approach) is reached in most episodes once the agent learns departure. For the episodes that fall outside the sphere, a graded bonus fills in the missing gradient:
+    </p>
+
+    <div class="formula-box">
+      $$r_{\text{prox}} = 100 \times \max\!\left(0,\; 1 - \frac{d_{\min}}{2 d_{\text{success}}}\right)$$<br>
+      <span class="comment"># d_min: closest approach to Mars achieved during episode</span><br>
+      <span class="comment"># Active inside 40 Mkm, zero beyond</span>
+    </div>
+
+    <p>
+      An episode that closes to 25 Mkm (just outside the success sphere) earns a proximity bonus of roughly 38, while one that closes to 50 Mkm earns zero. The success bonus itself is 200, so an actual arrival is still preferred over any proximity outcome by a wide margin. The purpose is to provide a distinguishable reward signal between "close miss" and "way off", which turns out to be the difference between the agent learning anything at all in Phase 1 and flatlining.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">No Fuel-Depletion Termination</h3>
+
+    <p>
+      One of the subtler changes is that running out of fuel does not end the episode. With 4 kN thrust and the action range $[0, 1]$, a random policy empties the tank within 7 steps, and earlier versions of the env then truncated the episode with a failure penalty. The problem is that this cuts off the agent's exposure to Phase 1 entirely before it has learned to be selective in Phase 0, so the distance-to-Mars gradient never reaches the policy. Now an empty tank simply means every subsequent burn command is silently ignored while the episode continues to run. The agent still coasts for all 336 days and receives the distance-based rewards, including the proximity grade, based on whatever trajectory it ended up on.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> mars_v11: First Converged Model</h2>
+
+    <p>
+      v11 trained for 10 million steps on 8 parallel environments with the PPO configuration that emerged from the Hohmann runs: batch_size=512, net_arch=[256,256], gamma=0.999, ent_coef=0.02, clip_range=0.2, linear LR annealing ON. The Mars env uses a larger network and a higher gamma than the Hohmann env because the episode is longer (140 steps vs 40) and the reward arrives further in the future.
+    </p>
+
+    <img
+      src="/traj_mars_v11.png"
+      alt="mars_v11 evaluation trajectories: spacecraft traces a transfer arc from Earth to Mars, closing to within 14-20 Mkm"
+      style="width:100%; border-radius:6px; border:1px solid rgba(240,177,85,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      mars_v11 evaluation across 12 episodes. Heliocentric trajectory (left), distance-to-Mars curve (top right), and burn commands by phase (bottom right, blue = Phase 0 departure, green = Phase 1 corrections). All episodes arrive within the 20 Mkm sphere.
+    </p>
+
+    <p>
+      The left panel shows the heliocentric plane. Earth starts at the bottom of the frame, the spacecraft traces the lower half of a transfer ellipse, and every episode closes on Mars on the right. The distance-to-Mars curve decays monotonically from 240 Mkm at departure to between 14 and 20 Mkm at arrival. The burn command panel shows the expected two-region structure: dense blue bars during the first 20 steps as the agent executes the TMI burn in pieces within a single LEO orbit pass, then 100 steps of near-zero green bars during heliocentric coast, with small corrective pulses near the end of the episode as the spacecraft approaches Mars.
+    </p>
+
+    <p>
+      The final reward across evaluation episodes averages around 335. For reference, the v2 run that simply coasted scored near zero, v3's unselective burning scored around 95, and v5 scored around 102 before plateauing. v11 is the first run whose policy is qualitatively doing the right thing.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> The 20 Mkm Wall</h2>
+
+    <p>
+      Every v11 evaluation episode arrives within the 20 Mkm sphere around Mars, but essentially none close to within 10 Mkm. The scatter is tight between 14 and 20. At first I tried to tune it by adjusting the Phase 1 correction cap, the proximity bonus scale, the entropy coefficient, and the network width. None of it moved the miss distance distribution by more than 1 Mkm.
+    </p>
+
+    <p>
+      The actual explanation is that the miss distance is set almost entirely by Phase 0, and Phase 1 corrections are provably incapable of removing the residual.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Cross-Track is Energy-Neutral</h3>
+
+    <p>
+      A cross-track burn changes the direction of the velocity vector without changing its magnitude, so the orbit's specific energy is preserved. Specific energy determines the semi-major axis, which determines the aphelion, which determines where the transfer ellipse meets Mars's orbit. Any miss distance that originates from an energy error in Phase 0 (overshooting or undershooting Mars's orbital radius) is outside the set of things cross-track burns can touch. In a 2D simulation this leaves only the in-plane orientation of the orbit as a controllable degree of freedom, and the 300-second departure step quantisation sets roughly 18 to 19 Mkm of unavoidable orientation error before any cross-track burn fires.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">Why Not Burn Toward Mars Instead</span>
+      <p>
+        Earlier versions of Phase 1 tried "burn along the spacecraft-to-Mars direction" rather than cross-track. However, Mars sits roughly 9° ahead of the spacecraft's velocity vector at arrival, so 99% of any Mars-pointed burn ends up along-track, inflates the orbital energy, and pushes the aphelion past Mars.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">One-Dimensional Action Space</h3>
+
+    <p>
+      The agent commands a single scalar in $[0, 1]$ and the environment picks the direction. For Phase 0 that is fine because geocentric prograde is the right direction for any departure burn. For Phase 1 it is the root of the problem. A real correction maneuver decomposes into three orthogonal components (radial, along-track, cross-track) and the optimal direction depends on where in the orbit the burn is fired. The agent has no way to express any of this. Every Phase 1 burn is forced into the single pre-selected cross-track direction regardless of what the orbit geometry actually calls for at that moment.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">No Mars Orbit Insertion</h3>
+
+    <p>
+      The episode ends the moment the spacecraft crosses into the 20 Mkm sphere. In a real mission this is the start of the hard part: a capture burn at Mars periapsis that drops the spacecraft into a Mars-centred orbit. Without that terminal phase, the agent has no incentive to arrive at Mars with a specific velocity relative to Mars, so closing further than 20 Mkm earns nothing while spending fuel for the capture burn earns nothing either. The reward landscape has no gradient beyond the success sphere.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Hardcoded Circular Orbits</h3>
+
+    <p>
+      Earth and Mars are treated as idealised circular co-planar orbits at their mean heliocentric radii. Real orbits have non-zero eccentricity (Mars is at 0.0934, which moves its heliocentric distance by roughly 20 Mkm across a Mars year) and an inclination between them of roughly 1.85°. The 1.85° inclination alone contributes about 4.8 Mkm of out-of-plane distance at Mars's orbit radius, which is a substantial fraction of the 20 Mkm success threshold. The current env simulates neither.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>// Where the Error Actually Comes From //</h3>
+      <p>
+        Integrating the oracle's trajectory from the moment of TMI completion shows that the residual miss distance is set to within 2 Mkm by the time the spacecraft exits Earth's sphere of influence. The 300-second Phase 0 decision step quantises the TMI burn timing by about half an LEO orbital period divided by 40, which is a few seconds of firing error, which propagates to millions of kilometres at Mars. Closing this gap requires continuous control over the burn timing; no amount of Phase 1 correction can recover it.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> What Comes Next</h2>
+
+    <p>
+      Next week's work is an environment rewrite rather than another hyperparameter sweep:
+    </p>
+
+    <p>
+      Phase 1 gets a multi-dimensional action space. Adding radial and along-track components alongside cross-track gives the agent actual control over the arrival geometry, and with that control the closest-approach distribution should narrow below 10 Mkm without changing anything else about the reward.
+    </p>
+
+    <p>
+      A Mars orbit insertion phase gets appended to the episode. The arrival condition becomes "captured into a Mars-centred orbit below some apoapsis" rather than "passed within 20 Mkm". This gives the agent a reason to arrive at Mars with a controlled relative velocity, which closes the loop on the transfer.
+    </p>
+
+    <p>
+      Planet positions get pulled from an ephemeris rather than from the circular-orbit approximation. Pointing the planet state messages at real SPICE positions fixes the orbit eccentricities and the mutual inclination.
+    </p>
+
+    <p>
+      The simulator itself has always been 3D; only the initial conditions and the target geometry were restricted to the x-y plane to simplify observation design. Once the planets are on real orbits, the out-of-plane component becomes meaningful and the observation vector has to carry it.
+    </p>
+
+    <p>
+      The interesting experiment for Week 8 is whether a policy trained on the ephemeris env can still produce the same clean TMI-plus-corrections structure that v11 found, or whether real orbit geometry produces training pathologies that the idealised version hid.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 07 &nbsp;/&nbsp; APRIL 21, 2026<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 8: Real Orbits, Real Capture</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+<script src="orbit.js"></script>
+
+</body>
+</html>
