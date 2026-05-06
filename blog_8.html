@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 8: Real Orbits, Real Capture | Senior Project Blog</title>
+  <meta name="blog-title" content="Real Orbits, Real Capture">
+  <meta name="blog-date" content="April 28, 2026">
+  <meta name="blog-week" content="Week 8">
+  <meta name="blog-description" content="A new environment built around SPICE ephemerides, a 4D action space, and a Mars capture criterion, plus the two debugging weeks it triggered.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 8 &nbsp;·&nbsp; April 28, 2026</div>
+    <h1 class="hero-title">Real Orbits, Real <em>Capture</em></h1>
+    <p class="hero-sub">
+      A new environment built around SPICE ephemerides, a 4D action space, and a Mars capture criterion, plus the two debugging weeks it triggered.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:400px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#e2ac7a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:500px; --speed:25s; --dir:reverse">
+      <div class="orbit-dot" style="--dot:#ada00e;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:600px; --speed:25s;">
+      <div class="orbit-dot" style="--dot:#6c6cff;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> Where Last Week Ended</h2>
+
+    <p>
+      Last week's mars_v11 model arrived inside a 20 Mkm sphere around Mars in every evaluation episode and could not get any closer. The audit traced the ceiling to the facts that the simulator was 2D, the action was a single scalar, Phase 1 corrections were hardcoded to a cross-track direction that cannot change orbital energy, the episode ended at flyby with no Mars Orbit Insertion, and the planets followed circular co-planar orbits that ignored real ephemeris geometry. None of these are things tuning can fix.
+    </p>
+
+    <p>
+      This week's work is the rewrite that addresses all five at once. The new environment lives at <code>envs/mars_nasa_env.py</code> with <code>ENV_NAME = "mars_nasa"</code>. The old environment is untouched, and the registry picks up the new one automatically. The new env builds on real SPICE ephemerides, exposes a 4D continuous action, runs a 3-phase finite-state machine that ends in a Mars-centred capture orbit, and is supported by a hand-rolled Lambert solver, a B-plane reference trajectory, an analytic oracle, a behavior-cloning pretrainer, and a 3-stage curriculum.
+    </p>
+
+    <p>
+      Two training campaigns came out of the new environment this week. Both failed in interesting ways, and the diagnoses are the most useful thing I have to write down.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 8 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/mars_nasa_env.py</div>
+          <div class="re-author">New 1100-line Gymnasium env: 3-phase FSM, 4D inertial-frame action, 36D observation, capture-orbit terminal success</div>
+        </div>
+        <div class="re-note">New environment</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/lambert_solver.py, envs/bplane.py, envs/reference_trajectory.py</div>
+          <div class="re-author">Izzo Lambert solver, B-plane frame math, cached Lambert-based reference trajectory used by the observation</div>
+        </div>
+        <div class="re-note">Trajectory tooling</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/ephemeris.py + utils/bsk_utils.py::build_nasa_interplanetary_simulation</div>
+          <div class="re-author">SPICE wrapper around the BSK-bundled DE430 kernels; new BSK builder using createSpiceInterface for live planet states</div>
+        </div>
+        <div class="re-note">SPICE wiring</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/oracles/mars_nasa_oracle.py</div>
+          <div class="re-author">Lambert + scheduled TCMs + analytic MOI; 78/80 captures across 4 launch windows × 20 seeds</div>
+        </div>
+        <div class="re-note">Oracle</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scripts/generate_bc_dataset.py + scripts/train_bc.py</div>
+          <div class="re-author">1000 oracle episodes → MLP behavior-cloning checkpoint loaded into PPO actor before training</div>
+        </div>
+        <div class="re-note">BC pipeline</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/curriculum.py</div>
+          <div class="re-author">3-stage curriculum on parking radius and launch-window randomisation, gated by rolling capture rate via mp.Value</div>
+        </div>
+        <div class="re-note">Curriculum</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/nasa_v1, nasa_v2</div>
+          <div class="re-author">Two failed training campaigns; root causes diagnosed and documented (sections 06 and 07)</div>
+        </div>
+        <div class="re-note">Results</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> A 4D Action and a 36D Observation</h2>
+
+    <p>
+      The single-scalar action of the previous environment was the deepest architectural limitation of the old setup. The new action is four-dimensional and lives in the J2000 inertial frame:
+    </p>
+
+    <div class="formula-box">
+      $$a = (u_x,\, u_y,\, u_z,\, m), \quad u \in [-1,1]^3,\; m \in [0,1]$$<br>
+      <span class="comment"># Direction is normalised; magnitude scales the burn duration</span><br>
+      $$\hat{u} = u\,/\,\max(\|u\|,\, \varepsilon), \qquad t_{\text{burn}} = m \cdot t_{\text{max,phase}}$$
+    </div>
+
+    <p>
+      The agent picks any direction in 3D, and a separate scalar sets how long to fire. A spherical $(\alpha, \beta, m)$ form was rejected because it has a coordinate singularity at the poles where the gradients of a Gaussian PPO policy explode. The unit-vector form lets the policy learn $\|u\| \to 1$ on its own without any constraint penalty. Pointing noise is layered on top by rotating $\hat{u}$ around a random axis using the existing perturbation infrastructure from Week 6.
+    </p>
+
+    <p>
+      The maximum burn duration is phase-dependent. Phase 0 (pre-TMI) keeps the 0.9 fraction from the old env, Phase 1 (cruise) uses 3.5e-5 (about 10 s/step) for trajectory correction maneuvers, and Phase 2 (MOI) uses 0.5 to allow the multi-hundred-m/s capture burn at Mars periapsis. The same action vector applies in all three phases; only the integrator window changes.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Observation</h3>
+
+    <p>
+      The observation grew from 18 floats to 36. The additions are heliocentric Keplerian elements (sin/cos of inclination, RAAN, argument of perigee), Mars-relative position and velocity (replaces the single distance scalar from before), B-plane targeting error against a Lambert reference (sections 04), reference-trajectory state deviation, a phase code, and the existing TMI alignment scalar gated to Phase 0 only.
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">4D</span>
+        <span class="stat-label">Continuous action ($u_x, u_y, u_z, m$)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">36D</span>
+        <span class="stat-label">Observation, all components in [-3, 3]</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">3</span>
+        <span class="stat-label">Latching phases: pre-TMI, cruise, MOI</span>
+      </div>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Mars Orbit Insertion</h3>
+
+    <p>
+      The success condition is finally the right one. Once the spacecraft enters Mars's sphere of influence (about 577 Mkm) and is approaching, the env transitions to Phase 2. From then on, the Mars-relative orbital state is converted to Keplerian elements at every step. Capture is declared when:
+    </p>
+
+    <div class="formula-box">
+      $$a > 0, \qquad 0.10 < e < 0.98$$<br>
+      $$r_p = a(1 - e) - R_\text{Mars} \in [250\,\text{km},\, 10{,}000\,\text{km}]$$<br>
+      $$r_a = a(1 + e) < 5 \cdot R_\text{Mars,SOI}$$<br>
+      <span class="comment"># All four conditions held for 3 consecutive steps</span>
+    </div>
+
+    <p>
+      The 3-step latch prevents a glancing pass from being mistaken for capture. A graded capture-quality score $q_{\text{moi}} \in [0, 1]$ is computed alongside the boolean criterion as a product of Gaussian kernels on $(e, r_p)$ relative to a target of $e = 0.85$, $r_p = 500\,\text{km}$. The terminal reward includes both: $+500$ for the boolean success plus $+200 \cdot q_{\text{moi}}$ for the graded part, so the agent has a smooth gradient to chase even before it lands inside the strict box.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Real Orbits via SPICE</h2>
+
+    <p>
+      Hardcoded circular planet orbits go away. Earth and Mars are now driven by JPL's DE430 ephemeris through SPICE, which Basilisk happens to ship as a support file at <code>~/.cache/bsk_support_data/</code>. <code>utils/ephemeris.py</code> is a thin <code>spiceypy</code> wrapper that furnishes the kernels once at process start and exposes <code>get_body_state(body, et)</code> and <code>utc_to_et</code>. The new BSK builder, <code>build_nasa_interplanetary_simulation</code>, swaps the hand-written planet-state messages for <code>gravFactory.createSpiceInterface(...)</code> with <code>epochInMsg=True</code>, which lets BSK push live planet states into the simulation as time advances.
+    </p>
+
+    <p>
+      The episode now picks a random launch window from a list of four real Mars opportunities:
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">2024-10-15</span>
+        <span class="stat-label">$v_\infty$ ≈ 4.32 km/s</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">2026-11-11</span>
+        <span class="stat-label">$v_\infty$ ≈ 3.49 km/s</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">2028-12-15</span>
+        <span class="stat-label">$v_\infty$ ≈ 3.61 km/s</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">2033-05-05</span>
+        <span class="stat-label">$v_\infty$ ≈ 3.15 km/s</span>
+      </div>
+    </div>
+
+    <p>
+      An earlier candidate of January 2031 was dropped after the oracle could not retarget through it: the Lambert solution diverged from a 374 m/s correction to 18.2 km/s during Phase 1 because the Earth-Mars geometry that month produced a transfer arc too sensitive to the departure timing. Replacing it with May 2033 gave a clean Lambert solve and an oracle that captures successfully.
+    </p>
+
+    <p>
+      Because of real ephemerides, none of the simplifying tricks from the old env survive. Mars's heliocentric distance varies by ~20 Mkm across its year because of its 0.0934 eccentricity, the orbit plane is inclined 1.85° relative to Earth's, and the launch geometry shifts substantially between 2024 and 2033. The agent has to learn to handle that variability rather than memorize one fixed scenario.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> Lambert, B-plane, and the Oracle</h2>
+
+    <p>
+      To give the agent a stable target, the observation includes the deviation from a Lambert reference trajectory, which is the unique two-body solution that connects the Earth's position at departure to the Mars's position at arrival in exactly the chosen flight time.
+    </p>
+
+    <p>
+      The Lambert solver lives in <code>envs/lambert_solver.py</code>, a hand-rolled implementation of the Izzo 2015 algorithm. The solver takes the two heliocentric position vectors, the time of flight, and $\mu_\text{Sun}$, and returns the velocity at each end of the arc. <code>envs/reference_trajectory.py</code> wraps it in a 200-waypoint sampled trajectory plus a B-plane target, with a disk cache keyed on the rounded epoch and parking altitude.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">B-plane Targeting</h3>
+
+    <p>
+      The B-plane is a 2D plane perpendicular to the asymptotic incoming velocity vector $\vec{v}_\infty$. NASA mission designers use it because hyperbolic flybys map cleanly onto two scalar coordinates ($B \cdot \hat{T}$ and $B \cdot \hat{R}$), and the periapsis altitude and inclination of the resulting capture orbit depend almost linearly on those two numbers. <code>envs/bplane.py</code> computes them from a Mars-relative state vector during cruise, and the observation carries the difference between the current and reference B-plane coordinates as two normalised scalars.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Why a Reference at All</span>
+      <p>
+        Without a reference, the agent has to learn arrival geometry from raw position and velocity, which scrambles every time the launch window changes. With the Lambert reference in the observation, the agent's job becomes "follow the reference, and do better at the end", which is well-defined across all four launch windows. The reference weight is annealed to zero by 5M training steps so the policy can outperform Lambert during the final stretch of training.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Oracle</h3>
+
+    <p>
+      The oracle (<code>utils/oracles/mars_nasa_oracle.py</code>) is a non-RL expert that captures into Mars orbit using analytic methods only. It exists for two reasons: to validate that the env is solvable in principle, and to provide demonstrations for behavior cloning. Phase 0 fires the Lambert $\Delta v$ in up to 3 burns at peak TMI alignment. Phase 1 schedules trajectory correction maneuvers at $t = 5d$, $60d$, and $180d$ using a primer-vector first approximation $\delta v \approx -r_\text{err} / t_\text{remaining}$. Phase 2 computes the analytic MOI $\Delta v$ from the hyperbolic state at Mars periapsis and splits it across up to 5 sub-burns.
+    </p>
+
+    <p>
+      The oracle gate is the most important test in the project. If the oracle cannot capture reliably, no amount of RL is going to. After two iterations on the Phase 1 cap and the B-plane target offset, the gate test now achieves 78/80 captures across the 4 launch windows × 20 random seeds:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Oracle gate test — 4 windows × 20 seeds</span><br>
+      <span class="comment"># 2024-10-15: 20/20</span><br>
+      <span class="comment"># 2026-11-11: 20/20</span><br>
+      <span class="comment"># 2028-12-15: 18/20</span><br>
+      <span class="comment"># 2033-05-05: 20/20</span><br>
+      $$\text{capture rate} = 78 / 80 = 97.5\%$$
+    </div>
+
+    <p>
+      The Phase 1 dv cap had to grow from 1500 m/s to 5000 m/s before the 2028 window stopped failing, and the B-plane target offset had to drop to zero (the original geometry-dependent offset of $5 \times 10^7$ m was actively pushing the spacecraft away from Mars in some configurations).
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> Bootstrapping with BC + Curriculum</h2>
+
+    <p>
+      A 36D observation, a 4D action, and four launch windows is enough state space that PPO from random initialisation does not converge in any reasonable time on this problem. The training stack adds two pieces around the standard PPO loop.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Behavior Cloning Warm Start</h3>
+
+    <p>
+      <code>scripts/generate_bc_dataset.py</code> runs the oracle through 1000 randomised episodes and saves $(s_t, a_t)$ pairs to a single <code>.npz</code> file. <code>scripts/train_bc.py</code> trains a $[256, 256]$ MLP with MSE loss on the actions for 50 epochs at $\text{lr} = 10^{-4}$. The output checkpoint is loaded into the SB3 PPO actor before the training loop starts:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># In main_train.py, when --bc-init is given:</span><br>
+      <code>model = PPO("MlpPolicy", env, policy_kwargs=dict(net_arch=[256,256]), ...)</code><br>
+      <code>bc_state = torch.load("bc_checkpoints/bc_policy_v1.pt")</code><br>
+      <code>model.policy.load_state_dict(bc_state, strict=False)</code><br>
+      <span class="comment"># strict=False keeps the value head + log_std random</span>
+    </div>
+
+    <p>
+      The <code>strict=False</code> matters because only the actor MLP weights match the BC checkpoint, so the value function and the action distribution scale start from PPO's defaults. Loading the value head would corrupt the on-policy advantage estimates from the very first rollout.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Three-Stage Curriculum</h3>
+
+    <p>
+      <code>utils/curriculum.py</code> manages a 3-stage progression keyed on rolling capture rate via a <code>multiprocessing.Value</code> shared across vectorized environments:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Stage 1 — fixed 2026-11-11 epoch, fixed parking radius, no perturbations</span><br>
+      <span class="comment"># Stage 2 — random parking radius (6800–8000 km), still fixed epoch</span><br>
+      <span class="comment"># Stage 3 — random epoch from all 4 windows, perturbations on</span>
+    </div>
+
+    <p>
+      However, the <code>mp.Value</code> object wraps an <code>mmap</code> region under the hood, and the default <code>SubprocVecEnv</code> start method (<code>forkserver</code> on Linux) cannot pickle <code>mmap</code> across the process boundary. Switching to <code>start_method="fork"</code> when the curriculum is enabled fixes it because forked children inherit the memory directly without serialising. <code>main_train.py</code> sets the start method automatically when <code>--curriculum</code> is passed.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> nasa_v1: A Reward Landscape Disaster</h2>
+
+    <p>
+      The first training run was nasa_v1: 10M steps, BC initialisation, curriculum off (to isolate baseline behavior). Eval reward stayed between -605 and -80,000 across the entire run.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">1. Unbounded Reference Penalty</h3>
+
+    <p>
+      The Lambert reference deviation was added as a potential-based shaping term:
+    </p>
+
+    <div class="formula-box">
+      $$r_\text{ref} = -w_\text{ref} \cdot \frac{\Delta\|r_{sc} - r_\text{ref}\|}{10^8\,\text{m}}$$
+    </div>
+
+    <p>
+      Combining $w_\text{ref} = 20$ and any divergent trajectory, the cumulative penalty over a 440-step episode reached -50,000 long before the spacecraft did anything else interesting. The "potential-based" framing makes the term telescope to a constant in the limit, but in practice the spacecraft never returns to the reference, so the telescoping never closes. Setting $w_\text{ref} = 0$ for nasa_v2 disabled the term entirely. Lambert deviation is still in the observation; however, it's not directly penalized by the agent.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">2. B-plane PBRS Init Bug</h3>
+
+    <p>
+      The B-plane error term carried a similar PBRS structure with a previous-step buffer initialised to zero. The first time the spacecraft entered the B-plane evaluation region (Phase 1 onward), the previous error was zero and the current error was several million metres, so the per-step delta was a one-shot reward of around -1000. With $w_\text{bplane} = 10^{-6}$ in the original config the magnitude was small enough not to matter, but combined with $r_\text{ref}$ it pushed several diagnostic episodes into the truly catastrophic range. Setting $w_\text{bplane} = 0$ removed this entirely.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">3. Earth Re-impact False Positives</h3>
+
+    <p>
+      The episode terminated with a $-500$ penalty if <code>dist_earth &lt; 6528 km</code> after step 40. The intent was to catch a spacecraft that crashed back into Earth after a botched escape. However, random Phase 0 burns from any starting point regularly nudged the LEO perigee below 6528 km altitude (LEO is at 7000 km radius, parking altitude near 600 km, so any retrograde burn fragment crosses the threshold). Even a "do nothing" policy that just orbited Earth got a $-500$ penalty around step 41 in a meaningful fraction of episodes.
+    </p>
+
+    <p>
+      The fix gates the impact check on a latched <code>_has_left_earth</code> flag, set to true the first time the spacecraft passes 50,000 km from Earth. Re-impact is only flagged for spacecraft that actually escaped first.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>// Reward Distribution Before vs After //</h3>
+      <p>
+        Same env, same launch window, same seed, three policies for comparison:
+      </p>
+      <div class="formula-box">
+        <span class="comment"># Before fix</span><br>
+        <span class="comment"># Oracle:      +146  (should be high, but was being beaten by penalties)</span><br>
+        <span class="comment"># Coast:       -598  (should be near zero, but penalties dominated)</span><br>
+        <span class="comment"># 5 random:    ≈ -50,000 each  (catastrophic)</span><br>
+        <br>
+        <span class="comment"># After fix</span><br>
+        <span class="comment"># Oracle:      +621</span><br>
+        <span class="comment"># Coast:       -6</span><br>
+        <span class="comment"># 5 random:    -22 to -85</span>
+      </div>
+      <p>
+        The signal-to-noise gap between success and exploration went from less than 1 reward unit to about 700, which is the gradient PPO needs to climb.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> nasa_v2: The log_std Runaway</h2>
+
+    <p>
+      With the reward fixes in place, nasa_v2 ran for 10M steps with BC initialisation and the 3-stage curriculum enabled. The policy improved cleanly during the first few million steps, peaked at an evaluation reward of about 154, then plateaued at around 75 for the remaining run. The agent didn't achieve any captures and every evaluation episode terminated by step-budget timeout at the 440-step limit.
+    </p>
+
+    <img
+      src="/traj_nasa_v2.png"
+      alt="nasa_v2 evaluation trajectory: spacecraft completes a heliocentric arc that grazes the Mars sphere of influence but never captures into a Mars-centred orbit"
+      style="width:100%; border-radius:6px; border:1px solid rgba(240,177,85,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      nasa_v2 evaluation in the heliocentric (J2000) plane. The policy completes a credible transfer arc and the spacecraft passes within 50 Mkm of Mars (well inside the 577 Mkm SOI), but the burn-command panel shows scattered Phase 1 firing and no concentrated MOI burn at periapsis. No capture in any evaluation episode.
+    </p>
+
+    <p>
+      The deterministic mean policy (with action noise stripped out) was actually fine and re-running evaluation in deterministic mode gave +154 reward and brought the spacecraft to within 600 Mkm of Mars at closest approach. The policy knew what to do; the stochastic version it actually trained with was burying every decision under noise.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Diagnosis</h3>
+
+    <p>
+      Tensorboard's <code>train/std</code> trace showed the action distribution width grew monotonically from 0.37 to 2.04 over 10M steps. Inspecting the saved model directly, the per-dimension log_std was $[1.16, 2.98, 1.99, 1.13]$. The action box is $[-1, 1]$ on each dimension, so a Gaussian with $\sigma = 2$ effectively samples uniformly from the box and the deterministic mean carries no information.
+    </p>
+
+    <p>
+      The cause is the entropy coefficient. The Hohmann env uses <code>ent_coef=0.01</code>, and that was inherited unchanged into the Mars NASA env's training defaults. Entropy gradient scales with the dimensionality of the action though, and a 4D Gaussian's entropy gradient is roughly four times larger per step than a 1D Gaussian's. The same coefficient that kept Hohmann's policy healthy was actively inflating Mars's log_std at every update. By the time training was halfway through, $\text{KL} \approx 0$ and no further policy learning was happening.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">Curriculum Never Promoted Either</span>
+      <p>
+        A second issue compounded the first. The curriculum's promotion threshold was 60% capture rate to advance from Stage 1, and zero captures means the agent stayed in Stage 1 for all 10M steps. Stages 2 and 3 (parking radius randomisation, all four launch windows, perturbations) never trained. Lowering the thresholds to 5% and 20% along with a hard 3M-step timestep fallback fixes the curriculum, but the log_std runaway has to be fixed first or even Stage 1 will not get anywhere.
+      </p>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">The Fix</h3>
+
+    <div class="formula-box">
+      <span class="comment"># 1. Per-env entropy coefficient default (envs/mars_nasa_env.py)</span><br>
+      <code>TRAIN_DEFAULTS["ent_coef"] = 0.002</code><br>
+      <br>
+      <span class="comment"># 2. New CLI flag pinning the initial action distribution width</span><br>
+      <code>python main_train.py --env mars_nasa --log-std-init -2.0 ...</code><br>
+      <br>
+      <span class="comment"># 3. Reset log_std at the start of a resume run, undoing the runaway</span><br>
+      <code>python main_train.py --resume runs/nasa_v2/best_model/best_model</code><br>
+      <code>    --reset-log-std -2.0 ...</code>
+    </div>
+
+    <p>
+      Resuming nasa_v2's best deterministic policy with $\log\sigma$ reset to $-2.0$ (giving $\sigma \approx 0.135$, well inside the action box) and entropy coefficient dropped to 0.002 should let the policy continue improving from where the deterministic mean already is, rather than restarting from scratch. 
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 08 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">08</span> What Comes Next</h2>
+
+    <p>
+      The plan for next week is the nasa_v3 result and the tuning that follows it, which will be based on these factors in the eval logs.
+    </p>
+
+    <p>
+      <strong>Curriculum advancement.</strong> With promotion thresholds at 5% capture, Stage 1 should hand off within the first few million steps, and the agent should start seeing parking-radius randomisation. If the agent never gets above 5% even on Stage 1, the entropy fix did not address the root cause and the log_std is still leaking through somewhere else.
+    </p>
+
+    <p>
+      <strong>Capture rate by launch window.</strong> The oracle scores 100% on three of the four windows and 90% on 2028. If the trained agent's per-window split mirrors that, the policy is generalising; if it collapses to one window only, BC is being undone too quickly.
+    </p>
+
+    <p>
+      <strong>B-plane error distribution.</strong> The whole point of the reference trajectory is that the agent learns to track and improve on it. A trained policy with median B-plane error below 5000 km is the release criterion for this env. Anything above 50,000 km means the BC weights have been lost.
+    </p>
+
+    <p>
+      Beyond nasa_v3, the next environmental improvement is enabling Mars's GGM2B spherical-harmonic gravity model in Phase 2 only. Point-mass Mars is fine for cruise and approach, but the capture orbit elements are sensitive to oblateness during the periapsis pass. Enabling it everywhere doubles the integrator cost, so gating it to Phase 2 is a cheaper compromise. The perturbation pipeline from Week 6 also needs to be plumbed through the new env, which currently ignores its own <code>cfg.perturb</code> in Stage 3 because <code>build_nasa_interplanetary_simulation</code> does not accept a perturbation config.
+    </p>
+
+    <p>
+      The interesting question for next week is whether 4D action plus capture criterion plus real ephemerides actually delivers what was missing from mars_v11, or whether the next ceiling is lurking one layer deeper.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 08 &nbsp;/&nbsp; APRIL 28, 2026<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 9: Captured</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+<script src="orbit.js"></script>
+
+</body>
+</html>
