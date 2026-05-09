@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 9: Captured | Senior Project Blog</title>
+  <meta name="blog-title" content="Captured">
+  <meta name="blog-date" content="May 5, 2026">
+  <meta name="blog-week" content="Week 9">
+  <meta name="blog-description" content="A reverse curriculum, a Phase 2 reward overhaul, the first 5/5 deterministic Mars captures, multi-offset training that scaled to 20/20, and the wall that stopped extension cold.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 9 &nbsp;·&nbsp; May 5, 2026</div>
+    <h1 class="hero-title"><em>Captured</em></h1>
+    <p class="hero-sub">
+      A reverse curriculum, a Phase 2 reward overhaul, the first 5/5 deterministic Mars captures, multi-offset training that scaled to 20/20, and the wall that stopped extension cold.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:400px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#e2ac7a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:500px; --speed:25s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#ada00e;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:600px; --speed:25s;">
+      <div class="orbit-dot" style="--dot:#6c6cff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:700px; --speed:25s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#3535fb;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> Where Last Week Ended</h2>
+
+    <p>
+      Last week's nasa_v2 plateaued at evaluation reward 75 after 10M steps with zero captures, traced to a 4D log_std runaway plus a curriculum that never advanced past Stage 1. The fix list was a per-environment <code>ent_coef = 0.002</code>, a CLI flag for initial log_std, and a <code>--reset-log-std</code> escape hatch for resumes.
+    </p>
+
+    <p>
+      nasa_v3 trained for another 5M steps from nasa_v2's best checkpoint with <code>ent_coef=0.002</code> and <code>log_std</code> reset to $-2.0$. Eval reward climbed cleanly to about 200, then stalled without captures. The mean policy steered the spacecraft to a closest approach of around 250 Mkm, well inside Mars's sphere of influence (577 Mkm), but it never produced a sustained anti-velocity burn at Mars periapsis. Several follow-up runs (nasa_v4 through nasa_v22) cycled through tweaks to alignment bonuses, distance shaping, fuel weights, and BC dataset composition. All of them plateaued in the same place: somewhere between $+250$ and $+450$ evaluation reward, with zero captures across roughly 60M cumulative training steps.
+    </p>
+
+    <p>
+      That much wasted compute against the same plateau is a sign that the gradient that PPO is climbing does not lead to capture. There is a partial-brake harvesting path worth $+400$, and there is a full-capture path worth over $+1500$. The first is reachable from random exploration; the second is not. This week's work tries to close that gap two different ways.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 9 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">scripts/precompute_soi_entry.py + bc_checkpoints/soi_entry_states.npz</div>
+          <div class="re-author">Cache oracle Phase 0+1 trajectory waypoints (SOI edge, plus 18 cruise offsets back to 120 days) so the env can spawn the spacecraft mid-flight</div>
+        </div>
+        <div class="re-note">Reverse curriculum data</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/mars_nasa_env.py + envs/env_config.py (PHASE_MOI rewards)</div>
+          <div class="re-author">w_moi_burn_align, w_mars_energy linear, w_q_moi_dense, w_bplane re-enabled with tanh + lazy init; terminal capture reward doubled</div>
+        </div>
+        <div class="re-note">Phase 2 surgery</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_train.py (--p2-only, --cruise-offset-*, --epoch-weights, --clamp-log-std)</div>
+          <div class="re-author">Reverse-curriculum CLI, weighted multi-offset sampling, hard log_std clamp box</div>
+        </div>
+        <div class="re-note">Training infrastructure</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/nasa_v23, runs/nasa_v24</div>
+          <div class="re-author">First deterministic capture at Mars: 5/5 success, +1762 reward, window 0 only, SOI-edge spawn</div>
+        </div>
+        <div class="re-note">First capture</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/nasa_v31, runs/nasa_v32</div>
+          <div class="re-author">Multi-offset training across {T=0, T-7d, T-30d, T-40d}: 20/20 captures from a single policy</div>
+        </div>
+        <div class="re-note">Multi-offset breakthrough</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/nasa_v33 ... v37</div>
+          <div class="re-author">Five attempts to extend: reverse curriculum past T-40d, multi-window from v32, window-1 specialist, multi-window from BC. All failed.</div>
+        </div>
+        <div class="re-note">The wall</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/controllers/mars_hierarchical.py + main_hierarchical_validate.py</div>
+          <div class="re-author">Phase-dispatching controller: oracle for Phase 0 + early cruise, v32 for the last 40 d + capture. Ships next week.</div>
+        </div>
+        <div class="re-note">Next week's plan</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> Skip the Hard Part</h2>
+
+    <p>
+      A reverse curriculum trains the last phase of a problem first. For Mars, the last phase is the brake at periapsis: a multi-hundred-m/s anti-velocity burn that converts the hyperbolic approach into a bound orbit. If the agent could be dropped at Mars's sphere of influence with a credible incoming hyperbola already in hand, capture would be the only thing it ever had to learn.
+    </p>
+
+    <p>
+      The oracle already constructs that approach state every time it runs, because Phase 0 (TMI) and Phase 1 (cruise + TCMs) come before Phase 2 in the same episode. So <code>scripts/precompute_soi_entry.py</code> runs the oracle once per launch window, snapshots the heliocentric $(r, v)$ at the moment the spacecraft crosses Mars's SOI, and dumps the result to <code>bc_checkpoints/soi_entry_states.npz</code>. The script also samples 18 cruise waypoints earlier in the trajectory (from 1 hour back through 120 days), so the env can spawn at any chosen time-before-SOI.
+    </p>
+
+    <p>
+      <code>InterplanetaryConfigV2.start_at_soi_edge</code> flips on the new spawn path. When set, <code>reset()</code> looks up the cached waypoint matching the chosen launch window and cruise offset, writes those numbers into BSK as the initial state, and sets <code>self._phase = PHASE_MOI</code> (or <code>PHASE_CRUISE</code> if the offset is non-zero). The episode budget is shared with the full-trajectory case (440 steps), but with no Phase 0 or early Phase 1 to spend it on, the agent gets $\sim$200 Phase-2 steps inside the SOI to commit to a brake.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Cache Beats Synthesis</span>
+      <p>
+        An earlier attempt placed the spacecraft on an analytic two-body Mars hyperbola with a tunable B-plane offset. Sun-perturbed dynamics during real cruise put the spacecraft on a different geometry from any clean two-body flyby, so the analytic spawn was off-distribution from the moment Phase 2 began. Caching the oracle's actual SOI state instead of synthesising one fixed it.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> Phase 2 Reward Surgery</h2>
+
+    <p>
+      Reverse curriculum changes the spawn distribution but says nothing about whether the reward surface inside Phase 2 has a path to capture. Inspecting the v17–v22 plateau showed it does not. The agent's locally optimal behaviour at SOI edge is a brief partial brake that nudges the trajectory closer to Mars, harvests the distance-shaping bonus, and lets the periapsis pass without committing the rest of the dv. Several reward terms had to be added or rebalanced to make a full capture strictly better than the harvest path.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">MOI Burn Alignment</h3>
+
+    <p>
+      The Phase 0 alignment bonus pays the agent for firing in the prograde direction relative to Earth's velocity. The Phase 2 analogue rewards firing anti-velocity relative to Mars:
+    </p>
+
+    <div class="formula-box">
+      $$\text{moi\_align} = \max\!\left(0,\; -\hat{u}\cdot \hat{v}_\text{rel}\right)$$<br>
+      $$r_\text{moi\_align} = \frac{dm}{m_0}\cdot w_\text{moi\_align} \cdot \text{moi\_align}^2$$<br>
+      <span class="comment"># w_moi_align = 400; with w_fuel = 100, perfect alignment is +300·(dm/m0)</span>
+    </div>
+
+    <p>
+      This is the gesture an MOI burn requires. With the quadratic profile, mid-alignment burns earn very little, so an agent fishing for partial credit gets nothing; a committed periapsis brake earns hundreds.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Mars-Relative Energy</h3>
+
+    <p>
+      The boolean capture criterion (bound, latched for 3 steps) is a step function on a continuous quantity. Adding a per-step shaping term on the underlying energy turns it into a smooth gradient:
+    </p>
+
+    <div class="formula-box">
+      $$\varepsilon = \tfrac{1}{2}|v_\text{rel}|^2 - \mu_\text{Mars}/r_\text{rel}$$<br>
+      $$r_\text{mars\_energy} = -\,w_\varepsilon \cdot \Delta\varepsilon\,/\,E_\text{scale}$$<br>
+      <span class="comment"># w_eps = 40, E_scale = 1e6; total reward over hyperbolic→bound brake ≈ +500</span>
+    </div>
+
+    <p>
+      A brake reduces $\varepsilon$, so $\Delta\varepsilon < 0$ and the agent gets positive reward proportional to the energy reduction. An earlier saturating-tanh form gave near-zero gradient at the hyperbolic baseline because $\varepsilon / E_\text{scale} \approx 2.5$ saturates the tanh derivative to about $0.07$. The linear form gives proportional signal at any $\varepsilon$. Telescoping is preserved (sum equals $-w_\varepsilon \cdot (\varepsilon_\text{final} - \varepsilon_\text{init}) / E_\text{scale}$), so an oscillating policy that pumps and brakes the same energy gets nothing.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Dense Capture Quality</h3>
+
+    <p>
+      The boolean criterion only fires once per episode at the moment of capture; until that moment, the Gaussian-kernel proximity score $q_\text{moi} \in [0, 1]$ (last week's terminal grading) carries no per-step weight. A tiny per-step contribution turns it into a continuous shaping signal:
+    </p>
+
+    <div class="formula-box">
+      $$r_{q,\text{dense}} = w_q \cdot q_\text{moi}\,, \qquad w_q = 5$$<br>
+      <span class="comment"># q_moi = 0 when e ≥ 1, so this only pays once the SC is on a bound orbit</span>
+    </div>
+
+    <p>
+      The gating on $e < 1$ is what makes this safe to add. The agent earns no continuous reward by getting "almost captured"; it only earns once it has actually bent the hyperbola into an ellipse. Across $\sim$50 to 100 in-SOI steps, this sums to $+250$ to $+500$ of reward for the post-capture coast.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">B-plane Done Right</h3>
+
+    <p>
+      Last week the B-plane shaping term was off entirely because of two interacting bugs. A saturating tanh potential plus a lazy first-entry initialisation lets it come back online:
+    </p>
+
+    <div class="formula-box">
+      $$\phi(b) = -\tanh\!\left(\frac{|b - b_\text{ref}|}{B_\text{scale}}\right)\,, \quad B_\text{scale} = 5\times10^7\,\text{m}$$<br>
+      $$r_\text{bplane} = w_b \cdot \big(\phi_\text{curr} - \phi_\text{prev}\big)\,, \qquad w_b = 200$$<br>
+      <span class="comment"># _bplane_err_prev set lazily on first entry into the 5·R_SOI band</span>
+    </div>
+
+    <p>
+      The total contribution is bounded by $2 w_b = 400$, so a divergent trajectory cannot accumulate the $-50000$ penalty that wrecked nasa_v1. The lazy-init removes the spurious one-shot delta the first time the spacecraft enters the evaluation region.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Terminal Rebalancing</h3>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">+1000</span>
+        <span class="stat-label">Capture success bonus (was $+500$)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">+500</span>
+        <span class="stat-label">Capture quality scale ($\times q_\text{moi}$, was $+200$)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">−100</span>
+        <span class="stat-label">Mars impact penalty (was $-500$)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">−100</span>
+        <span class="stat-label">Heliocentric escape penalty (was $-300$)</span>
+      </div>
+    </div>
+
+    <p>
+      A committed MOI brake risks both crashing into Mars (too much dv) and slipping back to heliocentric (too little). The old penalty magnitudes dwarfed the energy reward, so any committed brake was net-negative in expectation under exploration noise. The success bonus and quality scale go up by 2.5× in aggregate; the failure penalties drop to roughly the same magnitude as a single bad partial brake. Earth re-impact stays at $-500$ because that's a Phase 0 anomaly and has nothing to do with the brake-attempt risk profile.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> v24: First Capture</h2>
+
+    <p>
+      With the new reward surface and SOI-edge spawning, training proceeded in two stages. v23 ran with a relatively wide exploration setting (<code>ent_coef = 0.005</code>, <code>log_std_init = -1.0</code>, no clamp) for 4M steps from BC initialisation. Eval reward bounced between 600 and 900 with deterministic captures still at zero, but rollout reward (which includes stochastic action noise) showed individual episodes occasionally crossing the 1500 mark. Some action samples were threading the capture; the deterministic mean at the centre of the action distribution was not.
+    </p>
+
+    <p>
+      v24 forces the issue. It resumes from v23's best checkpoint and tightens the action distribution: <code>ent_coef = 0.0005</code>, <code>--reset-log-std -1.5</code>, and a hard <code>log_std</code> clamp of $[-2.5, -0.5]$. The clamp is the new piece. Without it, gradient updates that nudge log_std outside the box just keep going; with it, every update gets the freedom to move the mean inside a sigma window of $0.08$ to $0.61$. The constrained policy can no longer hide capture in stochastic outliers because the outliers don't exist anymore.
+    </p>
+
+    <p>
+      The first eval after the resume showed a single capture (eval reward 1763 at step 400k). Subsequent evals slipped back to the 700–900 range, but the best_model checkpoint preserved the 400k peak. Re-running deterministic evaluation on that checkpoint gave 5/5 captures across 5 random seeds, all on launch window 0 (2024 OCT 15), with mean reward $+1762$ and mean closest-approach to Mars under 1 Mkm (versus a 577 Mkm SOI). The model is saved at <code>successful_models/v24_window0_capture.zip</code>.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>// Where the Reward Came From //</h3>
+      <p>
+        Decomposing a capture episode by reward source clarifies which terms actually drove the policy:
+      </p>
+      <div class="formula-box">
+        <span class="comment"># v24 capture episode (window 0, seed 0)</span><br>
+        <span class="comment"># Per-step alignment   (sum over MOI burns):  +280</span><br>
+        <span class="comment"># Per-step energy      (Δε ≈ -1.2e7 / 1e6):   +480</span><br>
+        <span class="comment"># Per-step q_moi dense (post-capture coast):  +320</span><br>
+        <span class="comment"># Phase 2 entry bonus:                        +200</span><br>
+        <span class="comment"># Terminal capture success:                  +1000</span><br>
+        <span class="comment"># Terminal q_moi quality (≈ 0.7):             +350</span><br>
+        <span class="comment"># Fuel + survival + distance:                 -870</span><br>
+        $$\text{episode reward} \approx +1762$$
+      </div>
+    </div>
+
+    <p>
+      The energy term and the dense quality term together contribute about as much as the terminal success bonus does, which is the right ratio. If terminal reward dominated, exploration would never reach it; if shaping dominated, the policy would farm shaping without capturing.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> One Policy, Many Spawn Points</h2>
+
+    <p>
+      v24 captures only when spawned exactly at the SOI edge. Spawning even 7 days earlier and giving the agent the same Phase 2 budget produces zero captures. Several rounds of sequential per-offset training (v25 through v30) crystallised separate policies for different cruise offsets, but each new offset training run forgot the previous one (v28 was 5/5 at T-30d but 0/5 at T=0; v30 was 5/5 at T-40d but 0/5 at T-30d). A different approach was needed.
+    </p>
+
+    <p>
+      <code>cruise_offset_random_choices_s</code> and <code>cruise_offset_random_weights</code> let one PPO run train against multiple spawn points simultaneously. Every <code>reset()</code> picks an offset by weighted random sampling, so a single network sees all four spawn distributions and is required to handle each. v31 used uniform weights ($\{1, 1, 1, 1\}$) and plateaued at 10/20 captures across $\{T = 0,\, T - 7d,\, T - 30d,\, T - 40d\}$: window 0 and T-30d only. The two failing offsets (T-7d and T-40d) are at adjacent positions in offset space, suggesting the policy got stuck in a local mode that couldn't satisfy them.
+    </p>
+
+    <p>
+      v32 keeps the same spawn distribution but oversamples the failing offsets via $\{1, 3, 1, 3\}$ weights. The extra exposure to T-7d and T-40d perturbs the policy enough to escape the v31 attractor:
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">5/5</span>
+        <span class="stat-label">Captures at $T = 0$ (SOI edge)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5/5</span>
+        <span class="stat-label">Captures at $T - 7\,\text{d}$</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5/5</span>
+        <span class="stat-label">Captures at $T - 30\,\text{d}$</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5/5</span>
+        <span class="stat-label">Captures at $T - 40\,\text{d}$</span>
+      </div>
+    </div>
+
+    <p>
+      20 out of 20 deterministic captures from a single network at 1.35M steps, on launch window 0, across all four spawn points. The model lives at <code>successful_models/v32_window0_multioffset_0to40d_5x5_5x5.zip</code> and represents the best Mars policy this project has produced.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> The Wall</h2>
+
+    <p>
+      The plan from there was to extend v32: more cruise offsets, more launch windows, eventually a single policy that handles the full Earth-to-Mars run. Five attempts followed, and all five failed in different ways.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Reverse Curriculum Past T-40d</h3>
+
+    <p>
+      v33 added T-50d and T-60d to the spawn pool with $\{1, 1, 1, 1, 2, 2\}$ weights so the new offsets dominated. v34 was a gentler version with only T-45d added at weight 1. Both runs destabilised v32's anchor: eval reward bounced between 700 and $-142$ with no recovery, and the saved best_model stayed pinned at v32's checkpoint without ever progressing past it. The agent forgets the inner offsets faster than it learns the outer ones.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Multi-Window from v32</h3>
+
+    <p>
+      v35 and v35b loaded v32 and turned on launch-window randomisation with $\{1, 2, 2, 2\}$ weights (oversampling the unseen windows 1, 2, 3). The eval reward locked at 125.66, which is exactly the truncate-no-capture-no-crash terminal value. Window 0's capture behaviour was destroyed in the first million steps, while no capture behaviour for windows 1-3 ever appeared. The policy collapsed to a coast.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Window-1 Specialist</h3>
+
+    <p>
+      v36 isolated window 1 (2026-11-11) with weights $\{0, 1, 0, 0\}$. The first eval at 100k steps produced a single capture (reward $+2331$), suggesting the geometry was reachable. Subsequent evals dropped to negative reward by 1.5M steps. v32's window-0 weights are too crystallised to generalise; the gradient that would push them toward window 1 also pushes them away from window 0, and there is no path that gets close to both.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Multi-Window from BC v5</h3>
+
+    <p>
+      v37 sidestepped v32 entirely. A new BC checkpoint (<code>bc_policy_v5_p2heavy.pt</code>) was trained on a Phase-2-heavy oracle dataset and used to initialise PPO with all four launch windows enabled. Eval reward started at $-907$ and degraded to $-2589$ over 1.15M steps. The BC v5 baseline alone is poor (the dataset is too narrow), and PPO from a weak baseline degrades further rather than improving.
+    </p>
+
+    <div class="callout orange">
+      <span class="callout-label">The Pattern</span>
+      <p>
+        PPO retraining from the v32 anchor breaks v32 faster than it learns anything new. PPO from BC v5 has a baseline reward too low to climb from. Either the policy crystallises and refuses to budge, or it never crystallises in the first place. None of the four extension paths pushed evaluation reward above v32's baseline at any point.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> Compose, Don't Retrain</h2>
+
+    <p>
+      The full Earth-to-Mars problem has been solved twice already this project. The oracle does Phase 0 + 1 + 2 at 97.5% across all four launch windows. v32 does Phase 2 plus the last 40 days of cruise at 100% on window 0. What is missing is one PPO policy that does both. The plan for week 10 sidesteps that requirement: compose the two solvers behind a single <code>predict</code> interface, dispatching by phase.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># MarsHierarchicalController.predict(obs)</span><br>
+      <code>if env._phase == PHASE_PRE_TMI:               return oracle()</code><br>
+      <code>if env._phase == PHASE_CRUISE and t_to_soi > 40d:  return oracle()</code><br>
+      <code>if env._phase == PHASE_CRUISE:                return v32.predict(obs)</code><br>
+      <span class="comment"># PHASE_MOI</span><br>
+      <code>return v32.predict(obs)</code>
+    </div>
+
+    <p>
+      The hand-off boundary is exactly $T - 40$ days, the outermost cruise spawn point v32 was trained against. <code>bc_checkpoints/soi_entry_states.npz</code> was produced by running this same oracle, so the oracle's natural trajectory state at $T - 40d$ matches v32's training distribution by construction. There is no out-of-distribution stretch where the controller has to bridge between two unrelated regimes.
+    </p>
+
+    <p>
+      The PBRS state lives entirely on the env (<code>_ref_dev_prev</code>, <code>_bplane_err_prev</code>, <code>_mars_energy_prev</code>) and updates every step regardless of which solver supplied the action. Telescoping is preserved across the hand-off without any controller-side bookkeeping. The interface is the two-line SB3 contract every other validate script uses (<code>predict(obs, deterministic=True) → (action, None)</code>), so the controller drops into <code>main_validate.py</code> and <code>main_montecarlo.py</code> unchanged.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Verification Plan</h3>
+
+    <p>
+      Both pieces are individually 100% on clean physics, so anything below $\sim$19/20 captures on clean window 0 will be a wiring bug rather than a design flaw. The gating diagnostics: print Δr and Δv at the hand-off step against the cached <code>cruise_r_helio[0, idx_40d]</code>, expect sub-km / sub-cm/s under clean physics. Mean Phase 0 dv against the oracle's reported TMI dv (3.5–4.3 km/s for window 0). Mean $q_\text{moi}$ against v32's training distribution. Optional perturbed run: 20 seeds, expected 85–95% capture rate, anything below treated as a known limitation rather than a regression.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 08 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">08</span> What Comes Next</h2>
+
+    <p>
+      Week 10's deliverable is the hierarchical controller running end-to-end on window 0, clean physics, with a full Earth-to-Mars trajectory plot and a Monte Carlo distribution of capture quality. Two failure modes worth watching for: drift in v32's training distribution due to small ephemeris differences between the precomputed cache and the live SPICE state at evaluation time, and any unexpected sensitivity of the PBRS terms to the hand-off timing.
+    </p>
+
+    <p>
+      Beyond that, three open paths from this week's failures are worth keeping on the list. A bigger network ($[512, 512]$ instead of $[256, 256]$) might fit a multi-window policy where $[256, 256]$ over-specialises. An explicit window-id observation component would let a single network condition on which window it's running, replacing implicit feature learning with a direct switch. Per-window v32 specialists plus an ensemble dispatcher would extend the "compose, don't retrain" idea from across-phase to across-window. The hierarchical controller is the fastest route to a working full transfer; whichever of those three the next iteration explores depends on what the validation reveals.
+    </p>
+
+    <p>
+      The interesting question for next week is whether the stitched controller is enough to call it solved, and whether anything qualitatively new shows up at the 40-day hand-off boundary that the individual training of either piece would never have surfaced.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 09 &nbsp;/&nbsp; MAY 5, 2026<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Week 10: The Stitched Controller</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+<script src="orbit.js"></script>
+
+</body>
+</html>
