@@ -38,19 +38,9 @@
       linear-gradient(90deg,var(--grid) 1px,transparent 1px);
     background-size:48px 48px;
   }
-  /* atoms */
-  .eyebrow{
-    font-family:'JetBrains Mono',monospace;
-    font-size:18px;
-    letter-spacing:0.12em;
-    text-transform:uppercase;
-    color:var(--ink-dim);
-    display:flex;align-items:center;gap:14px;
-  }
-  .eyebrow::before{content:"";width:24px;height:1px;background:var(--ink-dim)}
   h1{font-family:'Space Grotesk';font-weight:600;font-size:160px;line-height:0.92;letter-spacing:-0.04em;text-wrap:balance}
-  h2{font-family:'Space Grotesk';font-weight:600;font-size:96px;line-height:0.98;letter-spacing:-0.02em;text-wrap:balance}
-  h3{font-family:'Space Grotesk';font-weight:500;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-wrap:balance}
+  h2{font-family:'Space Grotesk';font-weight:600;font-size:120px;line-height:0.98;letter-spacing:-0.02em;text-wrap:balance}
+  h3{font-family:'Space Grotesk';font-weight:500;font-size:56px;line-height:1.05;letter-spacing:-0.01em;text-wrap:balance}
   .mono{font-family:'JetBrains Mono',monospace}
   .dim{color:var(--ink-dim)}
   .faint{color:var(--ink-faint)}
@@ -58,11 +48,6 @@
   .earth{color:var(--earth)}
   .pagenum{
     position:absolute;bottom:32px;right:48px;
-    font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);
-    letter-spacing:0.1em;
-  }
-  .footstamp{
-    position:absolute;bottom:32px;left:48px;
     font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);
     letter-spacing:0.1em;
   }
@@ -76,9 +61,7 @@
     letter-spacing:0.1em;
     text-transform:uppercase;
   }
-  .rule{height:1px;background:var(--rule);width:100%}
 
-  /* tweak-driven body classes */
   body.no-grid deck-stage > section{background-image:none}
   body.hide-pagenum .pagenum{display:none}
   body.serif-display h1,
@@ -89,292 +72,175 @@
   body.serif-display h2 em,
   body.serif-display .s-take .big em{font-style:italic}
 
-  /* image-treatment: invert white-bg matplotlib for dark theme.
-     Filter is applied only to the inner <img> (via ::part) so the host's
-     dark background isn't inverted to white in letterbox areas (fit=contain). */
+  /* ── image-slot defaults to 240×160 — every slot must explicitly fill its parent ── */
   image-slot{display:block;background:#fff}
   image-slot.dark-plot{background:transparent}
   image-slot.dark-plot::part(frame){background:transparent}
   image-slot.dark-plot::part(image){filter:invert(1) hue-rotate(180deg) saturate(0.9) contrast(1.05)}
-  .plot-caption{
-    font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);
-    letter-spacing:0.18em;text-transform:uppercase;margin-top:14px;
-  }
-  .plot-caption.active{color:var(--mars)}
+  image-slot.native-dark{background:transparent}
+  image-slot.native-dark::part(frame){background:transparent}
 
-  /* shared SVG marks */
+  /* slot containers fill their grid track */
+  .full-img{flex:1;min-height:0;display:flex;background:var(--bg-2);
+            border:1px solid var(--rule);padding:14px}
+  .full-img > image-slot{width:100%;height:100%;flex:1;min-height:0}
+
   .orbit-mark{stroke:var(--ink-faint);fill:none;stroke-dasharray:2 6}
-  .body-earth{fill:var(--earth)}
-  .body-mars{fill:var(--mars)}
   .body-sun{fill:var(--warn)}
-  .traj-line{stroke:var(--mars);fill:none;stroke-width:2}
   .traj-bg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0.45}
 
-  /* ========== 01: TITLE ========== */
+  /* 01 TITLE */
   .s-title{display:grid;grid-template-rows:auto 1fr auto;gap:0}
   .s-title .topline{display:flex;justify-content:space-between;align-items:flex-start}
   .s-title .center{display:flex;flex-direction:column;justify-content:center;gap:28px;max-width:none}
-  .s-title .center .eyebrow{white-space:nowrap}
-  .s-title h1{font-size:92px;line-height:1.0;max-width:18ch}
+  .s-title h1{font-size:104px;line-height:1.0;max-width:18ch}
   .s-title h1 em{font-family:'Fraunces',serif;font-style:italic;font-weight:400;color:var(--mars)}
-  .s-title .sub{font-size:24px;line-height:1.5;color:var(--ink-dim);max-width:60ch;font-family:'Space Grotesk'}
-  .s-title .sub em{color:var(--ink);font-style:normal;font-weight:500}
   .s-title .footrow{
     display:flex;justify-content:space-between;align-items:flex-end;
     border-top:1px solid var(--rule);padding-top:28px;gap:48px;
   }
-  .s-title .footrow .who{display:flex;flex-direction:column;gap:4px}
   .s-title .footrow .k{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
-  .s-title .footrow .v{font-size:22px;color:var(--ink)}
+  .s-title .footrow .v{font-size:24px;color:var(--ink)}
   .s-title .footrow .right{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase;text-align:right;line-height:1.7}
 
-  /* ========== 02: HOOK ========== */
+  /* 02 HOOK */
   .s-hook{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:48px}
   .s-hook .quote{
-    font-family:'Fraunces',serif;font-weight:400;font-size:104px;
+    font-family:'Fraunces',serif;font-weight:400;font-size:144px;
     line-height:1.05;letter-spacing:-0.02em;text-wrap:balance;max-width:18ch;
   }
   .s-hook .quote em{font-style:italic;color:var(--mars)}
 
-  /* ========== 02b: EVOLUTION ========== */
-  .s-evo{display:grid;grid-template-rows:auto 1fr;gap:40px}
-  .evo-head{display:flex;justify-content:space-between;align-items:flex-end}
-  .evo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:start}
-
-  /* ========== 03: QUESTION ========== */
+  /* 03 QUESTION */
   .s-question{display:flex;flex-direction:column;justify-content:center;gap:48px}
-  .s-question h2{font-size:120px;line-height:0.95}
+  .s-question h2{font-size:144px;line-height:0.95}
   .s-question h2 em{font-style:normal;color:var(--mars)}
 
-  /* ========== 04: NOVELTY ========== */
-  .s-novel{display:grid;grid-template-rows:auto 1fr;gap:48px}
-  .novel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--rule);align-self:center}
-  .novel-grid > div{
-    padding:48px 36px 48px 0;
-    border-right:1px solid var(--rule);
-    display:flex;flex-direction:column;gap:18px;
-  }
-  .novel-grid > div:last-child{border-right:none;padding-right:0}
-  .novel-grid > div + div{padding-left:36px}
-  .novel-grid h3{font-size:44px;color:var(--ink)}
-  .novel-grid .num{
-    font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--mars);
-    letter-spacing:0.18em;
-  }
-
-  /* ========== 05: LIT ========== */
+  /* 04 LIT */
   .s-lit{display:grid;grid-template-rows:auto 1fr;gap:48px}
   .lit-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:stretch}
   .lit-card{
-    border:1px solid var(--rule);padding:48px;display:flex;flex-direction:column;gap:20px;
+    border:1px solid var(--rule);padding:56px 48px;display:flex;flex-direction:column;gap:24px;
     background:var(--bg-2);
   }
-  .lit-card .tag{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.15em;color:var(--ink-faint);text-transform:uppercase}
-  .lit-card h3{font-size:42px;line-height:1.1}
-  .lit-card .authors{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--ink-dim)}
-  .lit-card .lead{font-size:21px;color:var(--ink-dim);line-height:1.5}
-  .lit-card .lead em{color:var(--mars);font-style:normal}
-  .lit-card .takeaway{
-    margin-top:auto;display:flex;gap:14px;align-items:flex-start;
-    border-top:1px solid var(--rule);padding-top:18px;
-  }
-  .lit-card .takeaway .k{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase;min-width:90px;padding-top:4px}
-  .lit-card .takeaway .v{font-size:18px;color:var(--ink);line-height:1.45}
+  .lit-card h3{font-size:48px;line-height:1.05}
+  .lit-card .authors{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--ink-dim)}
 
-  /* ========== 06: METHOD ========== */
-  .s-method{display:grid;grid-template-rows:auto 1fr;gap:48px}
-  .stack{display:grid;grid-template-columns:1fr;gap:0;border:1px solid var(--rule);align-self:center;width:100%}
-  .stack-row{
-    display:grid;grid-template-columns:160px 1fr 320px;
-    border-bottom:1px solid var(--rule);
-    align-items:center;
-    padding:32px 32px;gap:32px;
-  }
-  .stack-row:last-child{border-bottom:none}
-  .stack-row .layer{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
-  .stack-row .name{font-family:'Space Grotesk';font-size:40px;font-weight:500}
-  .stack-row .name .accent{color:var(--mars)}
-  .stack-row .desc{font-size:15px;color:var(--ink-dim);line-height:1.5;font-family:'JetBrains Mono',monospace}
+  /* 05 STACK — image only */
+  .s-stack{display:grid;grid-template-rows:auto 1fr;gap:32px;min-height:0}
 
-  /* ========== 07: SETUP ========== */
+  /* 06 SETUP */
   .s-design{display:grid;grid-template-columns:1fr 1.1fr;gap:80px;align-items:center}
   .design-table{border:1px solid var(--rule)}
-  .design-table .row{display:grid;grid-template-columns:160px 1fr;border-bottom:1px solid var(--rule);padding:22px 24px;gap:16px;align-items:center}
+  .design-table .row{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--rule);padding:24px 28px;gap:16px;align-items:center}
   .design-table .row:last-child{border-bottom:none}
-  .design-table .k{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);letter-spacing:0.15em;text-transform:uppercase}
-  .design-table .v{font-size:22px;color:var(--ink)}
-  .design-table .v.mono{font-size:18px;font-family:'JetBrains Mono',monospace}
+  .design-table .k{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);letter-spacing:0.15em;text-transform:uppercase}
+  .design-table .v{font-size:24px;color:var(--ink)}
+  .design-table .v.mono{font-size:20px;font-family:'JetBrains Mono',monospace}
 
-  /* ========== 08: TIMELINE ========== */
-  .s-timeline{display:grid;grid-template-rows:auto 1fr;gap:48px}
-  .phases{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--rule);align-self:stretch}
-  .phase{
-    display:flex;flex-direction:column;gap:18px;padding:40px 36px;
-    border-right:1px solid var(--rule);position:relative;
-  }
-  .phase:last-child{border-right:none}
-  .phase .ph-head{display:flex;justify-content:space-between;align-items:baseline}
-  .phase .ph-num{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.18em;color:var(--ink-faint);text-transform:uppercase}
-  .phase .ph-week{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.15em;color:var(--ink-faint)}
-  .phase .ph-title{font-family:'Space Grotesk';font-weight:600;font-size:44px;line-height:1.0;letter-spacing:-0.01em}
-  .phase.win .ph-title{color:var(--mars)}
-  .phase .ph-bullets{display:flex;flex-direction:column;gap:10px;margin-top:6px}
-  .phase .ph-bullets li{list-style:none;font-size:18px;color:var(--ink-dim);line-height:1.4;display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:baseline}
-  .phase .ph-bullets li::before{content:"—";color:var(--ink-faint)}
-  .phase .ph-tag{
-    margin-top:auto;font-family:'JetBrains Mono',monospace;font-size:13px;
-    letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-faint);
-    border-top:1px solid var(--rule);padding-top:14px;
-  }
-  .phase.win .ph-tag{color:var(--mars)}
-
-
-  /* ========== 09-12: PHASES (split) ========== */
-  .s-phase{display:grid;grid-template-rows:auto 1fr auto;gap:24px;padding-bottom:64px}
+  /* 07-08 PHASES (image-driven) */
+  .s-phase{display:grid;grid-template-rows:auto 1fr;gap:24px;min-height:0}
   .s-phase .ph-head{display:flex;justify-content:space-between;align-items:flex-end;gap:48px}
-  .s-phase .ph-head h2{font-size:120px;line-height:0.94}
+  .s-phase .ph-head h2{font-size:144px;line-height:0.94}
   .s-phase .ph-head h2 em{font-style:normal;color:var(--mars)}
-  .s-phase .ph-meta{font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:0.18em;color:var(--ink-dim);text-align:right;line-height:1.7;text-transform:uppercase}
+  .s-phase .ph-meta{font-family:'JetBrains Mono',monospace;font-size:18px;letter-spacing:0.18em;color:var(--ink-dim);text-align:right;line-height:1.7;text-transform:uppercase}
   .s-phase .ph-meta b{color:var(--mars);font-weight:500}
-  .s-phase .ph-art{position:relative;min-height:0;display:flex;align-items:stretch;justify-content:center;border:1px solid var(--rule);background:var(--bg-2);padding:24px}
-  .s-phase .ph-art image-slot{flex:1;min-height:0}
-  .s-phase .ph-art.empty{padding:0;background:transparent;border:none}
-  .s-phase .ph-footrow{display:flex;justify-content:space-between;align-items:baseline;gap:48px;border-top:1px solid var(--rule);padding-top:18px}
-  .s-phase .ph-foot-l{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:0.18em;color:var(--ink-faint);text-transform:uppercase}
-  .s-phase .ph-foot-r{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:0.18em;color:var(--ink-dim);text-transform:uppercase;text-align:right}
-  .s-phase .ph-foot-r.win{color:var(--mars)}
-  /* Build slide: schematic stack */
-  .stackdiag{display:flex;flex-direction:column;gap:14px;width:100%;max-width:720px;align-self:center}
-  .stackdiag .row{display:grid;grid-template-columns:140px 1fr;border:1px solid var(--rule);background:var(--bg);padding:24px 28px;align-items:center;gap:24px}
-  .stackdiag .row .lyr{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
-  .stackdiag .row .nm{font-family:'Space Grotesk';font-size:28px;font-weight:500}
-  .stackdiag .row .nm em{font-style:normal;color:var(--mars)}
-  /* Plateau slide: dramatic "60M / 0" stat */
-  .plateau-stat{display:grid;grid-template-columns:1fr 1px 1fr;gap:48px;align-items:center;width:100%}
+
+  /* PLATEAU big stat */
+  .s-plateau{display:grid;grid-template-rows:auto 1fr;gap:24px}
+  .plateau-stat{
+    display:grid;grid-template-columns:1fr 1px 1fr;gap:48px;align-items:center;
+    border:1px solid var(--rule);background:var(--bg-2);padding:64px;
+  }
   .plateau-stat .divider{background:var(--rule);height:60%;align-self:center}
-  .plateau-stat .cell{display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
-  .plateau-stat .cell .label{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
-  .plateau-stat .cell .big{font-family:'Space Grotesk';font-size:200px;font-weight:600;line-height:0.95;letter-spacing:-0.03em;color:var(--ink)}
-  .plateau-stat .cell .big.warn{color:var(--warn)}
+  .plateau-stat .cell{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
+  .plateau-stat .cell .label{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
+  .plateau-stat .cell .big{font-family:'Space Grotesk';font-size:280px;font-weight:600;line-height:0.95;letter-spacing:-0.03em;color:var(--ink)}
   .plateau-stat .cell .big.fail{color:var(--mars);font-family:'Fraunces';font-style:italic;font-weight:400}
-  .plateau-stat .cell .unit{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink-dim);letter-spacing:0.1em}
 
-  /* ========== 09: HERO ========== */
-  .s-hero{display:grid;grid-template-rows:auto 1fr;gap:28px;padding-bottom:64px}
+  /* REWARD MONTAGE */
+  .s-evo{display:grid;grid-template-rows:auto 1fr;gap:32px;min-height:0}
+  .evo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch;min-height:0}
+  .evo-grid > div{display:flex;flex-direction:column;gap:10px;min-height:0}
+  .evo-grid image-slot{width:100%;flex:1;min-height:0;aspect-ratio:1/1}
+  .plot-caption{
+    font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);
+    letter-spacing:0.18em;text-transform:uppercase;
+  }
+  .plot-caption.active{color:var(--mars)}
+
+  /* RECIPE — diagnose + fix */
+  .s-recipe{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center;min-height:0}
+  .recipe-list{display:flex;flex-direction:column;gap:26px}
+  .recipe-item{display:grid;grid-template-columns:56px 1fr;gap:18px;align-items:flex-start;border-top:1px solid var(--rule);padding-top:22px}
+  .recipe-item:first-child{border-top:none;padding-top:0}
+  .recipe-item .num{font-family:'JetBrains Mono',monospace;color:var(--mars);font-size:15px;letter-spacing:0.18em}
+  .recipe-item h3{font-size:34px}
+
+  /* CURRICULUM (12) */
+  .s-curric{display:grid;grid-template-rows:auto 1fr;gap:32px;min-height:0}
+  .curric-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;min-height:0}
+  .curric-card{border:1px solid var(--rule);background:var(--bg-2);padding:48px 56px;display:flex;flex-direction:column;gap:20px}
+  .curric-card.b{border-color:var(--mars)}
+  .curric-card .tag{font-family:'JetBrains Mono',monospace;color:var(--ink-faint);font-size:14px;letter-spacing:0.2em;text-transform:uppercase}
+  .curric-card.b .tag{color:var(--mars)}
+  .curric-card h3{font-size:44px;line-height:1.05}
+
+  /* HANDOFF */
+  .s-handoff{display:grid;grid-template-rows:auto 1fr auto;gap:32px;min-height:0}
+  .handoff-img{min-height:0;display:flex;background:var(--bg-2);border:1px solid var(--rule);padding:14px}
+  .handoff-img > image-slot{flex:1;min-height:0;width:100%;height:100%}
+  .s-handoff .pilots{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule)}
+  .s-handoff .pilot{padding:36px 40px;display:flex;flex-direction:column;gap:8px}
+  .s-handoff .pilot.oracle{border-right:1px solid var(--rule)}
+  .s-handoff .pilot .who{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-faint);letter-spacing:0.22em;text-transform:uppercase}
+  .s-handoff .pilot.ppo .who{color:var(--mars)}
+  .s-handoff .pilot h3{font-size:44px}
+  .s-handoff .pilot.ppo h3{color:var(--mars)}
+
+  /* HERO trajectory */
+  .s-hero{display:grid;grid-template-rows:auto 1fr;gap:24px;min-height:0}
   .hero-head{display:flex;justify-content:space-between;align-items:flex-end;gap:48px}
-  .hero-plot-wrap{position:relative;min-height:0;display:flex}
-  .hero-plot-wrap image-slot{flex:1;min-height:0}
 
-  /* ========== 10: HANDOFF ========== */
-  .s-handoff{display:grid;grid-template-rows:auto 1fr;gap:48px}
-  .pilots{
-    display:grid;grid-template-columns:1fr auto 1fr;
-    gap:0;border:1px solid var(--rule);align-self:center;width:100%;
-  }
-  .pilot{
-    display:flex;flex-direction:column;gap:18px;
-    padding:48px 48px 56px;position:relative;min-height:380px;
-  }
-  .pilot.oracle{border-right:1px solid var(--rule)}
-  .pilot .who{
-    font-family:'JetBrains Mono',monospace;font-size:13px;
-    letter-spacing:0.22em;color:var(--ink-faint);text-transform:uppercase;
-  }
-  .pilot.ppo .who{color:var(--mars)}
-  .pilot .role{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink-dim);letter-spacing:0.05em}
-  .pilot h3{font-size:54px;line-height:1.0;margin-top:8px}
-  .pilot.ppo h3{color:var(--mars)}
-  .pilot .span{
-    margin-top:auto;font-family:'JetBrains Mono',monospace;font-size:14px;
-    letter-spacing:0.16em;color:var(--ink-dim);text-transform:uppercase;
-  }
-  .pilot .burn{
-    font-family:'JetBrains Mono',monospace;font-size:14px;
-    color:var(--ink-faint);letter-spacing:0.1em;
-  }
-  .pilot .job{font-size:20px;color:var(--ink);line-height:1.45;max-width:32ch}
-  .handoff-col{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;padding:0 36px;
-    border-left:1px dashed var(--ink-faint);border-right:1px dashed var(--ink-faint);
-    background:var(--bg-2);
-  }
-  .handoff-col .hlbl{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.22em;color:var(--ink-faint);text-transform:uppercase}
-  .handoff-col .harrow{font-family:'Space Grotesk';font-size:72px;color:var(--mars);line-height:1}
-  .handoff-col .ht{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink);letter-spacing:0.1em}
+  /* CAPTURE QUALITY two-up */
+  .s-capture{display:grid;grid-template-rows:auto 1fr;gap:24px;min-height:0}
+  .cap-row{display:grid;grid-template-columns:1.15fr 1fr;gap:24px;min-height:0}
+  .cap-row > div{background:var(--bg-2);border:1px solid var(--rule);padding:14px;display:flex;min-height:0}
+  .cap-row image-slot{flex:1;min-height:0;width:100%;height:100%}
 
-  /* ========== 11: NUMBERS ========== */
-  .s-numbers{display:grid;grid-template-rows:auto 1fr;gap:48px}
+  /* NUMBERS */
+  .s-numbers{display:grid;grid-template-rows:auto 1fr;gap:48px;min-height:0}
   .num-grid{
     display:grid;grid-template-columns:repeat(4,1fr);gap:0;
     border:1px solid var(--rule);align-self:stretch;
   }
   .metric{
-    display:flex;flex-direction:column;gap:14px;padding:40px 32px;
+    display:flex;flex-direction:column;gap:18px;padding:48px 36px;
     border-right:1px solid var(--rule);justify-content:space-between;
   }
   .metric:last-child{border-right:none}
-  .metric .lbl{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
+  .metric .lbl{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
   .metric .big{
-    font-family:'Space Grotesk';font-weight:600;font-size:120px;
+    font-family:'Space Grotesk';font-weight:600;font-size:144px;
     line-height:0.92;letter-spacing:-0.03em;color:var(--ink);
   }
   .metric .big.mars{color:var(--mars)}
-  .metric .big .sm{font-size:48px;color:var(--ink-faint)}
-  .metric .sub{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-dim);letter-spacing:0.08em;line-height:1.5}
+  .metric .big .sm{font-size:56px;color:var(--ink-faint)}
 
-  /* ========== 10: COMPARE ========== */
-  .s-compare{display:grid;grid-template-rows:auto 1fr;gap:48px}
-  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule);align-self:center;width:100%}
-  .cmp > div{padding:48px;display:flex;flex-direction:column;gap:24px}
-  .cmp > div:first-child{border-right:1px solid var(--rule)}
-  .cmp .head{display:flex;justify-content:space-between;align-items:baseline}
-  .cmp h3{font-size:36px}
-  .cmp .pill{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);letter-spacing:0.15em;text-transform:uppercase}
-  .cmp ul{list-style:none;display:flex;flex-direction:column;gap:14px}
-  .cmp li{display:grid;grid-template-columns:120px 1fr;gap:18px;font-size:20px;color:var(--ink);line-height:1.4;align-items:baseline}
-  .cmp li .lbl{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);letter-spacing:0.15em}
+  /* REGIME image */
+  .s-regime{display:grid;grid-template-rows:auto 1fr;gap:32px;min-height:0}
 
-  /* ========== 11: REGIME ========== */
-  .s-regime{display:grid;grid-template-columns:1fr 1.4fr;gap:64px;align-items:center}
-  .regime-svg{width:100%;height:auto}
-  .regime-key{display:flex;flex-direction:column;gap:18px;font-family:'JetBrains Mono',monospace;font-size:18px}
-  .regime-key div{display:flex;gap:14px;align-items:center}
-  .regime-key span.dot{width:14px;height:14px;display:inline-block}
-
-  /* ========== 12: TAKEAWAY ========== */
-  .s-take{display:flex;flex-direction:column;justify-content:center;gap:48px}
-  .s-take .big{
-    font-family:'Fraunces',serif;font-weight:400;font-size:120px;line-height:1.0;
+  /* THANKS */
+  .s-thanks{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:48px;position:relative}
+  .s-thanks .big{
+    font-family:'Fraunces',serif;font-weight:400;font-size:128px;line-height:1.0;
     letter-spacing:-0.02em;text-wrap:balance;max-width:18ch;
   }
-  .s-take .big em{font-style:italic;color:var(--mars)}
-
-  /* ========== 13: PRODUCT ========== */
-  .s-product{display:grid;grid-template-columns:1fr 1.2fr;gap:64px;align-items:center}
-  .terminal{
-    background:var(--bg-2);border:1px solid var(--rule);
-    padding:32px;font-family:'JetBrains Mono',monospace;font-size:18px;line-height:1.7;
-    color:var(--ink-dim);
-  }
-  .terminal .prompt{color:var(--mars)}
-  .terminal .ok{color:var(--ok)}
-  .terminal .key{color:var(--earth)}
-  .terminal .out{color:var(--ink)}
-
-  /* ========== 14: REFS ========== */
-  .s-refs{display:grid;grid-template-rows:auto 1fr;gap:32px}
-  .ref-list{display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--rule);padding-top:18px}
-  .ref-list .ref{display:grid;grid-template-columns:64px 1fr;gap:20px;padding-bottom:14px;border-bottom:1px solid var(--rule)}
-  .ref-list .num{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--ink-faint);letter-spacing:0.1em}
-  .ref-list .body{font-size:18px;color:var(--ink-dim);line-height:1.45}
-  .ref-list .body strong{color:var(--ink);font-weight:500}
-
-  /* ========== 15: THANKS ========== */
-  .s-thanks{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:32px}
-  .s-thanks .huge{
-    font-family:'Fraunces',serif;font-weight:400;font-style:italic;
-    font-size:280px;line-height:0.9;letter-spacing:-0.04em;color:var(--mars);
+  .s-thanks .big em{font-style:italic;color:var(--mars)}
+  .s-thanks .footer{
+    position:absolute;bottom:80px;left:96px;right:96px;
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-top:1px solid var(--rule);padding-top:24px;
   }
 </style>
 
@@ -408,7 +274,6 @@
         </linearGradient>
       </defs>
 
-      <!-- starfield -->
       <g opacity="0.55">
         <circle cx="180" cy="160" r="1.2" fill="#fff"/>
         <circle cx="320" cy="760" r="1" fill="#fff"/>
@@ -422,32 +287,19 @@
         <circle cx="60" cy="480" r="0.9" fill="#fff"/>
       </g>
 
-      <!-- heliocentric system, sun-centered -->
       <g transform="translate(1380 620)">
         <circle r="520" fill="url(#g-sun)" />
-
-        <!-- Earth orbit (smaller) -->
         <circle r="230" fill="none" stroke="oklch(72% 0.11 230)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="2 5"/>
-        <!-- Mars orbit (1.52 AU) -->
         <circle r="350" fill="none" stroke="oklch(72% 0.14 45)" stroke-opacity="0.4" stroke-width="1" stroke-dasharray="2 5"/>
-
-        <!-- Hohmann-style transfer ellipse (semi-major = (rE+rM)/2 = 290; eccentricity ~0.21) -->
-        <!-- ellipse rotated so its perihelion sits at Earth's position -->
         <g transform="rotate(150)">
           <ellipse cx="60" cy="0" rx="290" ry="284" fill="none" stroke="url(#g-traj)" stroke-width="2.5" stroke-dasharray="4 4"/>
         </g>
-
-        <!-- Sun -->
         <circle r="10" fill="oklch(85% 0.14 85)"/>
         <circle r="18" fill="none" stroke="oklch(85% 0.14 85)" stroke-opacity="0.5"/>
-
-        <!-- Earth at angle -30° (perihelion of transfer ellipse, on Earth orbit) -->
         <g transform="translate(199.2 -115)">
           <circle r="14" fill="url(#g-earth)"/>
           <circle r="22" fill="none" stroke="oklch(72% 0.11 230)" stroke-opacity="0.25"/>
         </g>
-
-        <!-- Mars at angle 150° (aphelion of transfer ellipse, on Mars orbit) -->
         <g transform="translate(-303.1 175)">
           <circle r="12" fill="url(#g-mars)"/>
           <circle r="20" fill="none" stroke="oklch(72% 0.14 45)" stroke-opacity="0.4"/>
@@ -456,487 +308,338 @@
     </svg>
 
     <div class="topline">
-      <div class="eyebrow">Senior Research Project · May 2026</div>
-      <div class="stamp">
-</div>
+      <div class="stamp">TOAST</div>
+      <div class="stamp">May 2026</div>
     </div>
 
     <div class="center">
-      <div class="eyebrow" style="margin-bottom:8px">A reinforcement-learning approach</div>
       <h1>Adaptive,<br/><em>fuel-optimal</em><br/>trajectory planning.</h1>
-      <div class="sub">
-</div>
     </div>
 
     <div class="footrow">
-      <div class="who">
+      <div>
         <div class="k">Author</div>
         <div class="v">Nikola Mazzola</div>
       </div>
-      <div class="right">EARTH → MARS CAPTURE
-12 WEEKS</div>
+      <div class="right">EARTH → MARS CAPTURE<br/>12 WEEKS</div>
     </div>
-    <div class="pagenum">01 / 21</div>
+    <div class="pagenum">01 / 20</div>
   </section>
 
   <!-- ============================================================ 02: HOOK -->
   <section class="s-hook" data-screen-label="02 Hook">
-    <div class="eyebrow">Why this project</div>
     <h2 class="quote">Teach a spacecraft<br/>to <em>fly itself.</em></h2>
-    <div class="pagenum">02 / 21</div>
-  </section>
-
-  <!-- ============================================================ 02b: EVOLUTION -->
-  <section class="s-evo" data-screen-label="03 Evolution">
-    <div class="evo-head">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div class="eyebrow">Reward shaping</div>
-        <h2 style="font-size:72px">Each plot is one<br/>broken reward.</h2>
-      </div>
-      <div class="mono dim" style="font-size:18px;letter-spacing:0.15em;text-align:right;line-height:1.6">NO PERTURB &nbsp;&rarr;&nbsp; PERTURB<br/>EARLY &nbsp;&rarr;&nbsp; LATE</div>
-    </div>
-    <div class="evo-grid">
-      <div><image-slot id="traj-v4" style="width:100%;height:auto;aspect-ratio:1;" shape="rounded" radius="6" src="traj_v4.png" placeholder="traj_v4" class="dark-plot"></image-slot><div class="plot-caption">No perturb · Earth orbit</div></div>
-      <div><image-slot id="traj-v7" style="width:100%;height:auto;aspect-ratio:1;border:1px solid var(--mars);" shape="rounded" radius="6" src="traj_v7.png" placeholder="traj_v7" class="dark-plot"></image-slot><div class="plot-caption active">No perturb · approach ✓</div></div>
-      <div><image-slot id="traj-v8" style="width:100%;height:auto;aspect-ratio:1;" shape="rounded" radius="6" src="traj_v8.png" placeholder="traj_v8" class="dark-plot"></image-slot><div class="plot-caption">Perturb on · heliocentric</div></div>
-      <div><image-slot id="traj-v11" style="width:100%;height:auto;aspect-ratio:1;border:1px solid var(--mars);" shape="rounded" radius="6" src="traj_v11.png" placeholder="traj_v11" class="dark-plot"></image-slot><div class="plot-caption active">Perturb on · approach ✓</div></div>
-    </div>
-    <div class="pagenum">03 / 21</div>
+    <div class="pagenum">02 / 20</div>
   </section>
 
   <!-- ============================================================ 03: QUESTION -->
-  <section class="s-question" data-screen-label="04 Research Question">
-    <div class="eyebrow">Research question</div>
+  <section class="s-question" data-screen-label="03 Research Question">
     <h2>Can a network<br/>fly a spacecraft<br/>better than the<br/><em>math</em> can?</h2>
-    <div class="pagenum">04 / 21</div>
+    <div class="pagenum">03 / 20</div>
   </section>
 
-  <!-- ============================================================ 04: NOVELTY -->
-  <section class="s-novel" data-screen-label="05 Why this matters">
-    <div style="display:flex;flex-direction:column;gap:20px">
-      <div class="eyebrow">What's new</div>
-      <h2 style="font-size:72px">Three things.</h2>
-    </div>
-    <div class="novel-grid">
-      <div>
-        <div class="num">01 / FIDELITY</div>
-        <h3>A flight-grade<br/>simulator.</h3>
-      </div>
-      <div>
-        <div class="num">02 / ORACLE</div>
-        <h3>Benchmarked against<br/>an actual optimum.</h3>
-      </div>
-      <div>
-        <div class="num">03 / REGIME</div>
-        <h3>The middle of<br/>the map.</h3>
-      </div>
-    </div>
-    <div class="pagenum">05 / 21</div>
-  </section>
-
-  <!-- ============================================================ 05: LIT -->
-  <section class="s-lit" data-screen-label="06 Literature">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="eyebrow">Foundations</div>
-      <h2 style="font-size:72px">Built on top of two papers.</h2>
-    </div>
+  <!-- ============================================================ 04: LIT -->
+  <section class="s-lit" data-screen-label="04 Foundations">
+    <h2 style="font-size:88px">Built on two ideas.</h2>
     <div class="lit-grid">
       <div class="lit-card">
-        <div class="tag">arXiv:2008.08501 · The benchmark</div>
+        <div class="mono dim" style="font-size:14px;letter-spacing:0.18em">arXiv:2008.08501</div>
         <h3>Deep learning for autonomous interplanetary trajectory design.</h3>
-        <div class="authors">Federici, Benedikter, Zavoli · 2021</div>
-        <div class="lead">
-</div>
-        <div class="takeaway">
-          <div class="k">
-</div>
-          <div class="v">
-</div>
-        </div>
+        <div class="authors">Federici, Benedikter, Zavoli — 2021</div>
       </div>
       <div class="lit-card">
-        <div class="tag">AIAA J. Aerospace Information Systems · The simulator</div>
+        <div class="mono dim" style="font-size:14px;letter-spacing:0.18em">AIAA JAIS 2020</div>
         <h3>Basilisk: a flexible, scalable, modular astrodynamics framework.</h3>
-        <div class="authors">Kenneally, Piggott, Schaub · AVSLab</div>
-        <div class="lead">
-</div>
-        <div class="takeaway">
-          <div class="k">
-</div>
-          <div class="v">
-</div>
-        </div>
+        <div class="authors">Kenneally, Piggott, Schaub — AVSLab</div>
       </div>
     </div>
-    <div class="pagenum">06 / 21</div>
+    <div class="pagenum">04 / 20</div>
   </section>
 
-  <!-- ============================================================ 06: METHOD -->
-  <section class="s-method" data-screen-label="07 Method">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="eyebrow">System architecture</div>
-      <h2 style="font-size:88px">The stack.</h2>
+  <!-- ============================================================ 05: STACK -->
+  <section class="s-stack" data-screen-label="05 The Stack">
+    <h2 style="font-size:120px">The stack.</h2>
+    <div class="full-img">
+      <image-slot id="stack-img" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/stack_diagram.png" placeholder="System stack"
+        class="native-dark"></image-slot>
     </div>
-
-    <div class="stack">
-      <div class="stack-row" style="background:var(--bg-2)">
-        <div class="layer">Layer 04</div>
-        <div class="name"><span class="accent">Hierarchical</span> orchestrator</div>
-        <div class="desc">Lambert oracle &rarr; PPO handoff<br/>at T &minus; 40 days, inside Mars SOI</div>
-      </div>
-      <div class="stack-row">
-        <div class="layer">Layer 03</div>
-        <div class="name">PPO &middot; <span class="accent">capture specialist</span></div>
-        <div class="desc">SB3 &middot; BC warm-start<br/>reverse curriculum on cached hand-offs</div>
-      </div>
-      <div class="stack-row">
-        <div class="layer">Layer 02</div>
-        <div class="name">Custom Gymnasium <span class="accent">env</span></div>
-        <div class="desc">obs: r, v, t-to-go &middot; act: [F<sub>x</sub>, F<sub>y</sub>, F<sub>z</sub>, |F|]<br/>3-phase FSM &middot; B-plane targeting</div>
-      </div>
-      <div class="stack-row">
-        <div class="layer">Layer 01</div>
-        <div class="name"><span class="accent">Basilisk</span> physics core</div>
-        <div class="desc">6-DOF &middot; SPICE DE430 ephemerides<br/>n-body &middot; SRP &middot; gravitational harmonics</div>
-      </div>
-    </div>
-    <div class="pagenum">07 / 21</div>
+    <div class="pagenum">05 / 20</div>
   </section>
 
-  <!-- ============================================================ 07: SETUP -->
-  <section class="s-design" data-screen-label="08 Experiment Setup">
-    <div style="display:flex;flex-direction:column;gap:24px">
-      <div class="eyebrow">Setup</div>
-      <h2 style="font-size:72px">The boundary-<br/>value problem.</h2>
-    </div>
-
+  <!-- ============================================================ 06: SETUP -->
+  <section class="s-design" data-screen-label="06 Experiment Setup">
+    <h2 style="font-size:104px">Setup.</h2>
     <div class="design-table">
-      <div class="row"><div class="k">Launch</div><div class="v">2024-10-15 &middot; window 0</div></div>
-      <div class="row"><div class="k">Start</div><div class="v">Earth departure C3</div></div>
-      <div class="row"><div class="k">Target</div><div class="v">Mars capture orbit</div></div>
+      <div class="row"><div class="k">Launch</div><div class="v">2024-10-15</div></div>
+      <div class="row"><div class="k">Start</div><div class="v">Low Earth orbit</div></div>
+      <div class="row"><div class="k">Target</div><div class="v">Captured Mars orbit</div></div>
       <div class="row"><div class="k">Action</div><div class="v mono">[F<sub>x</sub>, F<sub>y</sub>, F<sub>z</sub>, |F|]</div></div>
-      <div class="row"><div class="k">Obs</div><div class="v mono">[r, v, t<sub>rem</sub>]</div></div>
-      <div class="row"><div class="k">Perturbations</div><div class="v"><span class="mars">moderate</span> &middot; mission-realistic</div></div>
-      <div class="row"><div class="k">Episode</div><div class="v">&asymp; 9 months simulated</div></div>
+      <div class="row"><div class="k">Observation</div><div class="v mono">[r, v, t<sub>rem</sub>]</div></div>
+      <div class="row"><div class="k">Perturbations</div><div class="v"><span class="mars">moderate</span></div></div>
+      <div class="row"><div class="k">Episode</div><div class="v">240 days</div></div>
     </div>
-    <div class="pagenum">08 / 21</div>
+    <div class="pagenum">06 / 20</div>
   </section>
 
-  <!-- ============================================================ 09: BUILD -->
-  <section class="s-phase" data-screen-label="09 Build">
-    <div class="ph-head">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="eyebrow">Phase 01 · weeks 01–03</div>
-        <h2>Build the bench.</h2>
-      </div>
-      <div class="ph-meta">Foundation<br/>code, no flight</div>
+  <!-- ============================================================ 07: RL PRIMER -->
+  <section class="s-stack" data-screen-label="07 How RL Works">
+    <h2 style="font-size:104px">The loop.</h2>
+    <div class="full-img" style="background:transparent;border:none;padding:0">
+      <image-slot id="rl-loop" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/rl_loop.png" placeholder="Reinforcement learning loop"
+        class="native-dark"></image-slot>
     </div>
-    <div class="ph-art empty">
-      <div class="stackdiag">
-        <div class="row"><div class="lyr">Layer 03</div><div class="nm">PPO · Stable-Baselines3</div></div>
-        <div class="row"><div class="lyr">Layer 02</div><div class="nm">Custom Gymnasium <em>env</em></div></div>
-        <div class="row"><div class="lyr">Layer 01</div><div class="nm"><em>Basilisk</em> physics core</div></div>
-      </div>
-    </div>
-    <div class="ph-footrow">
-      <div class="ph-foot-l">obs · act · reward defined</div>
-      <div class="ph-foot-r">no captures yet</div>
-    </div>
-    <div class="pagenum">09 / 21</div>
+    <div class="pagenum">07 / 20</div>
   </section>
 
-  <!-- ============================================================ 10: EXPLORE -->
-  <section class="s-phase" data-screen-label="10 Explore">
+  <!-- ============================================================ 08: PHASE 1 — BUILD -->
+  <section class="s-phase" data-screen-label="08 Build">
     <div class="ph-head">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="eyebrow">Phase 02 · weeks 04–06</div>
-        <h2>Explore.</h2>
-      </div>
-      <div class="ph-meta">First convergence<br/><b>Earth orbit ✓</b></div>
+      <h2>Build the bench.</h2>
+      <div class="ph-meta">Weeks 01–03</div>
     </div>
-    <div class="ph-art">
-      <image-slot id="ph-explore" style="width:100%;height:100%;" shape="rounded" radius="6" fit="contain" src="traj_v4.png" placeholder="traj_v4 · first Earth-orbit convergence" class="dark-plot"></image-slot>
+    <div class="full-img">
+      <image-slot id="stack-art" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/phase01_build.png" placeholder="Phase 01 stack"
+        class="native-dark"></image-slot>
     </div>
-    <div class="ph-footrow">
-      <div class="ph-foot-l">v4 · 10/10 reach target SMA</div>
-      <div class="ph-foot-r">err 0.2%</div>
-    </div>
-    <div class="pagenum">10 / 21</div>
+    <div class="pagenum">08 / 20</div>
   </section>
 
-  <!-- ============================================================ 11: PLATEAU -->
-  <section class="s-phase" data-screen-label="11 Plateau">
+  <!-- ============================================================ 08: PHASE 2 — EXPLORE -->
+  <section class="s-phase" data-screen-label="09 Explore">
     <div class="ph-head">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="eyebrow">Phase 03 · weeks 07–08</div>
-        <h2>The <em>plateau.</em></h2>
-      </div>
-      <div class="ph-meta">Hohmann works · Mars won't<br/>reward sparsity diagnosed</div>
+      <h2>First <em>convergence.</em></h2>
+      <div class="ph-meta">Weeks 04–06  ·  <b>10 / 10</b></div>
     </div>
-    <div class="ph-art empty" style="border:1px solid var(--rule);background:var(--bg-2);padding:48px">
-      <div class="plateau-stat">
-        <div class="cell">
-          <div class="label">PPO sim steps</div>
-          <div class="big">60M</div>
-          <div class="unit">across reward iterations</div>
+    <div class="full-img">
+      <image-slot id="ph-explore" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="traj_v4.png" placeholder="Earth-orbit convergence"
+        class="dark-plot"></image-slot>
+    </div>
+    <div class="pagenum">09 / 20</div>
+  </section>
+
+  <!-- ============================================================ 09: REWARD MONTAGE -->
+  <section class="s-evo" data-screen-label="10 Reward Wall">
+    <h2 style="font-size:88px">Each plot is one<br/>broken reward.</h2>
+    <div class="evo-grid">
+      <div>
+        <image-slot id="traj-v4" style="width:100%;flex:1;min-height:0;aspect-ratio:1/1"
+          shape="rounded" radius="6" fit="contain" src="traj_v4.png" placeholder="v4" class="dark-plot"></image-slot>
+        <div class="plot-caption">v4</div>
+      </div>
+      <div>
+        <image-slot id="traj-v7" style="width:100%;flex:1;min-height:0;aspect-ratio:1/1;border:1px solid var(--mars)"
+          shape="rounded" radius="6" fit="contain" src="traj_v7.png" placeholder="v7" class="dark-plot"></image-slot>
+        <div class="plot-caption active">v7  ✓</div>
+      </div>
+      <div>
+        <image-slot id="traj-v8" style="width:100%;flex:1;min-height:0;aspect-ratio:1/1"
+          shape="rounded" radius="6" fit="contain" src="traj_v8.png" placeholder="v8" class="dark-plot"></image-slot>
+        <div class="plot-caption">v8</div>
+      </div>
+      <div>
+        <image-slot id="traj-v11" style="width:100%;flex:1;min-height:0;aspect-ratio:1/1;border:1px solid var(--mars)"
+          shape="rounded" radius="6" fit="contain" src="traj_v11.png" placeholder="v11" class="dark-plot"></image-slot>
+        <div class="plot-caption active">v11  ✓</div>
+      </div>
+    </div>
+    <div class="pagenum">10 / 20</div>
+  </section>
+
+  <!-- ============================================================ 10: PLATEAU -->
+  <section class="s-plateau" data-screen-label="11 Plateau">
+    <div class="ph-head">
+      <h2>The <em>plateau.</em></h2>
+      <div class="ph-meta">Weeks 07–08</div>
+    </div>
+    <div class="plateau-stat">
+      <div class="cell">
+        <div class="label">PPO sim steps</div>
+        <div class="big">60M</div>
+      </div>
+      <div class="divider"></div>
+      <div class="cell">
+        <div class="label">Mars captures</div>
+        <div class="big fail">0</div>
+      </div>
+    </div>
+    <div class="pagenum">11 / 20</div>
+  </section>
+
+  <!-- ============================================================ 11: DIAGNOSIS — reward fix -->
+  <section class="s-recipe" data-screen-label="12 Reward Diagnosis">
+    <div>
+      <h2 style="font-size:80px;margin-bottom:32px">Three bugs<br/>in the reward.</h2>
+      <div class="recipe-list">
+        <div class="recipe-item">
+          <div class="num">01</div>
+          <h3>Unbounded penalty.</h3>
         </div>
-        <div class="divider"></div>
-        <div class="cell">
-          <div class="label">Mars captures</div>
-          <div class="big fail">0</div>
-          <div class="unit">zero · the wall</div>
+        <div class="recipe-item">
+          <div class="num">02</div>
+          <h3>One-shot B-plane shock.</h3>
+        </div>
+        <div class="recipe-item">
+          <div class="num">03</div>
+          <h3>Phantom Earth re-entry.</h3>
         </div>
       </div>
     </div>
-    <div class="ph-footrow">
-      <div class="ph-foot-l">policy plateaus at Earth escape</div>
-      <div class="ph-foot-r">Mars SOI never reached</div>
+    <div class="full-img" style="align-self:stretch">
+      <image-slot id="reward-fix" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/reward_fix.png" placeholder="Reward fix" class="native-dark"></image-slot>
     </div>
-    <div class="pagenum">11 / 21</div>
+    <div class="pagenum">12 / 20</div>
   </section>
 
-  <!-- ============================================================ 12: BREAKTHROUGH -->
-  <section class="s-phase" data-screen-label="12 Breakthrough">
+  <!-- ============================================================ 12: CURRICULUM + BC -->
+  <section class="s-curric" data-screen-label="13 Curriculum + BC">
     <div class="ph-head">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="eyebrow">Phase 04 · weeks 09–12</div>
-        <h2><em>Breakthrough.</em></h2>
+      <h2>Curriculum +<br/><em>warm-start.</em></h2>
+      <div class="ph-meta">Weeks 09–11</div>
+    </div>
+    <div class="curric-grid">
+      <div class="curric-card">
+        <div class="tag">A · Behaviour cloning</div>
+        <h3>Pre-train the network on the oracle.</h3>
       </div>
-      <div class="ph-meta">Oracle → PPO handoff<br/><b>48 / 50 captures</b></div>
+      <div class="curric-card b">
+        <div class="tag">B · Reverse curriculum</div>
+        <h3>Solve the last 40 days first.</h3>
+      </div>
     </div>
-    <div class="ph-art">
-      <image-slot id="ph-break" style="width:100%;height:100%;" shape="rounded" radius="6" fit="contain" src="traj_mars_v11.png" placeholder="Earth → Mars captures" class="dark-plot"></image-slot>
-    </div>
-    <div class="ph-footrow">
-      <div class="ph-foot-l">BC warm-start · hierarchical handoff</div>
-      <div class="ph-foot-r win">Earth → Mars ✓</div>
-    </div>
-    <div class="pagenum">12 / 21</div>
+    <div class="pagenum">13 / 20</div>
   </section>
 
-  <!-- ============================================================ 09: HERO TRAJECTORY -->
-  <section class="s-hero" data-screen-label="13 The Capture">
+  <!-- ============================================================ 13: LEARNING CURVE -->
+  <section class="s-hero" data-screen-label="14 Learning Curve">
     <div class="hero-head">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="eyebrow">Final result · launch window 2024-10-15</div>
-        <h2 style="font-size:80px">Earth → Mars,<br/><span class="mars">end to end.</span></h2>
-      </div>
-      <div class="mono dim" style="font-size:16px;letter-spacing:0.18em;text-align:right;line-height:1.7">
-        HIERARCHICAL v34f<br/>
-        5 EPISODES · 5 CAPTURES
-      </div>
+      <h2 style="font-size:104px">From plateau<br/>to <span class="mars">capture.</span></h2>
     </div>
-    <div class="hero-plot-wrap">
-      <image-slot id="ehm-traj" style="width:100%;height:100%;" shape="rounded" radius="6" fit="contain" src="assets/earth_to_mars_trajectory.png" placeholder="Earth → Mars hierarchical trajectory" class="dark-plot"></image-slot>
+    <div class="full-img">
+      <image-slot id="learning-curve" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/learning_curve.png" placeholder="Learning curve"
+        class="native-dark"></image-slot>
     </div>
-    <div class="pagenum">13 / 21</div>
+    <div class="pagenum">14 / 20</div>
   </section>
 
-  <!-- ============================================================ 10: HANDOFF -->
-  <section class="s-handoff" data-screen-label="14 The Handoff">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:48px">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div class="eyebrow">Hierarchical architecture</div>
-        <h2 style="font-size:88px">Lambert hands off<br/>to the <span class="mars">network.</span></h2>
-      </div>
-      <div class="mono dim" style="font-size:16px;letter-spacing:0.18em;text-align:right;line-height:1.7">
-        ≈9 MO. FLIGHT TIME<br/>
-        ONE BURN, ONE SWITCH, ONE CAPTURE
-      </div>
+  <!-- ============================================================ 14: HANDOFF -->
+  <section class="s-handoff" data-screen-label="15 The Handoff">
+    <h2 style="font-size:104px">Lambert hands off<br/>to the <span class="mars">network.</span></h2>
+    <div class="handoff-img">
+      <image-slot id="ho-timeline" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/handoff_timeline.png" placeholder="240-day timeline" class="native-dark"></image-slot>
     </div>
-
     <div class="pilots">
       <div class="pilot oracle">
-        <div class="who">Pilot 01 · Lambert oracle</div>
-        <div class="role">classical TBVP solver</div>
-        <h3>Trans-Mars injection<br/>&amp; bulk cruise.</h3>
-        <div class="job dim">Solves the two-body BVP, plans the kickburn at Earth departure, then nudges the spacecraft along the planned arc with small corrections.</div>
-        <div class="burn">~1,000 m/s · TMI + corrections</div>
-        <div class="span">Day 0 &nbsp;→&nbsp; Day 200</div>
+        <div class="who">Pilot 01 · Lambert</div>
+        <h3>TMI &amp; cruise.</h3>
       </div>
-
-      <div class="handoff-col">
-        <div class="hlbl">handoff</div>
-        <div class="harrow">→</div>
-        <div class="ht">T &minus; 40 d</div>
-        <div class="hlbl" style="max-width:8ch;text-align:center">trained on oracle hand-off states</div>
-      </div>
-
       <div class="pilot ppo">
-        <div class="who">Pilot 02 · PPO specialist</div>
-        <div class="role">capture-trained network</div>
-        <h3>Final cruise<br/>&amp; orbit insertion.</h3>
-        <div class="job dim">Takes the wheel for the last 40 days. Closed-loop thrust commands inside Mars SOI; B-plane targeting from the policy itself.</div>
-        <div class="burn">~500 m/s · MOI burn</div>
-        <div class="span">Day 200 &nbsp;→&nbsp; Day 240+</div>
+        <div class="who">Pilot 02 · PPO</div>
+        <h3>Final cruise &amp; capture.</h3>
       </div>
     </div>
-    <div class="pagenum">14 / 21</div>
+    <div class="pagenum">15 / 20</div>
   </section>
 
-  <!-- ============================================================ 11: NUMBERS -->
-  <section class="s-numbers" data-screen-label="15 The Numbers">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:48px">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div class="eyebrow">The receipt</div>
-        <h2 style="font-size:88px">Four numbers<br/>worth the year.</h2>
+  <!-- ============================================================ 15: HERO TRAJECTORY -->
+  <section class="s-hero" data-screen-label="16 The Capture">
+    <div class="hero-head">
+      <h2 style="font-size:104px">Earth → Mars,<br/><span class="mars">on autopilot.</span></h2>
+    </div>
+    <div class="full-img">
+      <image-slot id="ehm-traj" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/earth_to_mars_trajectory.png" placeholder="Earth → Mars" class="native-dark"></image-slot>
+    </div>
+    <div class="pagenum">16 / 20</div>
+  </section>
+
+  <!-- ============================================================ 16: CAPTURE QUALITY -->
+  <section class="s-capture" data-screen-label="17 Tighter Than Optimal">
+    <h2 style="font-size:104px">Tighter than<br/>the <span class="mars">optimum.</span></h2>
+    <div class="cap-row">
+      <div>
+        <image-slot id="capture-quality" style="width:100%;height:100%"
+          shape="rounded" radius="6" fit="contain"
+          src="assets/capture_quality.png" placeholder="Capture quality" class="native-dark"></image-slot>
       </div>
-      <div class="mono dim" style="font-size:16px;letter-spacing:0.18em;text-align:right;line-height:1.7">
-        50 PERTURBED EPISODES<br/>
-        WINDOW 0 · 2024-10-15
+      <div>
+        <image-slot id="capture-closeup" style="width:100%;height:100%"
+          shape="rounded" radius="6" fit="contain"
+          src="assets/mars_capture_closeup.png" placeholder="Closeup" class="native-dark"></image-slot>
       </div>
     </div>
+    <div class="pagenum">17 / 20</div>
+  </section>
 
+  <!-- ============================================================ 17: NUMBERS -->
+  <section class="s-numbers" data-screen-label="18 The Numbers">
+    <h2 style="font-size:104px">Four numbers.</h2>
     <div class="num-grid">
       <div class="metric">
-        <div class="lbl">Captures · perturbed</div>
+        <div class="lbl">Perturbed captures</div>
         <div class="big mars">48<span class="sm">/50</span></div>
-        <div class="sub">96% under realistic dynamics noise, SRP &amp; ephemeris drift.</div>
       </div>
       <div class="metric">
-        <div class="lbl">Captures · clean physics</div>
+        <div class="lbl">Clean captures</div>
         <div class="big">100<span class="sm">%</span></div>
-        <div class="sub">50 / 50 episodes when perturbations are off.</div>
       </div>
       <div class="metric">
-        <div class="lbl">Periapsis · TOAST vs oracle</div>
+        <div class="lbl">rp  ·  TOAST / oracle</div>
         <div class="big mars">46<span class="sm">/102</span></div>
-        <div class="sub">×10³ km · the learned policy captures <em class="mars" style="font-style:normal">tighter</em> than the classical optimum.</div>
       </div>
       <div class="metric">
-        <div class="lbl">Capture eccentricity</div>
-        <div class="big">0.53</div>
-        <div class="sub">Bound, elliptical, stable for follow-on circularization.</div>
+        <div class="lbl">Eccentricity</div>
+        <div class="big">0.59</div>
       </div>
     </div>
-    <div class="pagenum">15 / 21</div>
+    <div class="pagenum">18 / 20</div>
   </section>
 
-  <!-- ============================================================ 10: COMPARE -->
-  <section class="s-compare" data-screen-label="16 Vs Federici">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="eyebrow">vs Federici 2020</div>
-      <h2 style="font-size:80px">Different points,<br/>same curve.</h2>
+  <!-- ============================================================ 18: REGIME -->
+  <section class="s-regime" data-screen-label="19 Regime Map">
+    <h2 style="font-size:104px">Where the algorithm<br/><span class="mars">lives.</span></h2>
+    <div class="full-img">
+      <image-slot id="regime-img" style="width:100%;height:100%"
+        shape="rounded" radius="6" fit="contain"
+        src="assets/regime_map.png" placeholder="Regime map" class="native-dark"></image-slot>
     </div>
-
-    <div class="cmp">
-      <div>
-        <div class="head"><h3>Federici 2020</h3><div class="pill">prior art</div></div>
-        <ul>
-          <li><span class="lbl">PROBLEM</span><span>Heliocentric rendezvous</span></li>
-          <li><span class="lbl">PERTURB</span><span>Extreme</span></li>
-          <li><span class="lbl">SIM</span><span>Simplified dynamics</span></li>
-          <li><span class="lbl">RESULT</span><span class="mars">RL crushes oracle</span></li>
-        </ul>
-      </div>
-      <div>
-        <div class="head"><h3>TOAST v34f</h3><div class="pill" style="color:var(--mars);border-color:var(--mars)">this work</div></div>
-        <ul>
-          <li><span class="lbl">PROBLEM</span><span>Earth &rarr; Mars capture (LEO &rarr; MOI)</span></li>
-          <li><span class="lbl">PERTURB</span><span>Moderate &middot; realistic</span></li>
-          <li><span class="lbl">SIM</span><span>Basilisk &middot; flight-grade</span></li>
-          <li><span class="lbl">RESULT</span><span class="mars">48 / 50 captures, tighter than oracle</span></li>
-        </ul>
-      </div>
-    </div>
-    <div class="pagenum">16 / 21</div>
+    <div class="pagenum">19 / 20</div>
   </section>
 
-  <!-- ============================================================ 11: REGIME -->
-  <section class="s-regime" data-screen-label="17 Regime Map">
-    <div>
-      <div class="eyebrow" style="margin-bottom:24px">Where each method lives</div>
-      <h2 style="font-size:80px">Mapping<br/>the territory.</h2>
-
-      <div class="regime-key" style="margin-top:48px">
-        <div><span class="dot" style="background:var(--ink-faint)"></span><span>Classical open-loop</span></div>
-        <div><span class="dot" style="background:var(--earth)"></span><span>Federici 2020</span></div>
-        <div><span class="dot" style="background:var(--mars)"></span><span>TOAST v34f</span></div>
-      </div>
-    </div>
-
-    <svg class="regime-svg" viewBox="0 0 700 600">
-      <line x1="80" y1="540" x2="680" y2="540" stroke="var(--ink-faint)" stroke-width="1"/>
-      <line x1="80" y1="540" x2="80" y2="40" stroke="var(--ink-faint)" stroke-width="1"/>
-      <text x="380" y="585" text-anchor="middle" font-family="JetBrains Mono" font-size="16" fill="var(--ink-dim)" letter-spacing="2">PROBLEM DIFFICULTY →</text>
-      <text x="40" y="290" text-anchor="middle" font-family="JetBrains Mono" font-size="16" fill="var(--ink-dim)" letter-spacing="2" transform="rotate(-90 40 290)">PERTURBATIONS →</text>
-
-      <rect x="240" y="230" width="320" height="220" fill="oklch(72% 0.14 45)" opacity="0.05" stroke="var(--ink-faint)" stroke-dasharray="3 5"/>
-      <text x="400" y="345" text-anchor="middle" font-family="JetBrains Mono" font-size="14" fill="var(--ink-faint)" letter-spacing="2">REAL MISSIONS</text>
-
-      <circle cx="170" cy="470" r="14" fill="var(--ink-faint)"/>
-      <circle cx="220" cy="100" r="14" fill="var(--earth)"/>
-      <circle cx="500" cy="320" r="18" fill="var(--mars)"/>
-      <circle cx="500" cy="320" r="32" fill="none" stroke="var(--mars)" stroke-opacity="0.4"/>
-    </svg>
-    <div class="pagenum">17 / 21</div>
-  </section>
-
-  <!-- ============================================================ 12: TAKEAWAY -->
-  <section class="s-take" data-screen-label="18 Takeaway">
-    <div class="eyebrow">One sentence</div>
-    <h2 class="big">A learned policy can produce a <em>tighter Mars capture</em> than the classical optimum.</h2>
-    <div class="pagenum">18 / 21</div>
-  </section>
-
-  <!-- ============================================================ 13: PRODUCT -->
-  <section class="s-product" data-screen-label="19 Final Product">
-    <div style="display:flex;flex-direction:column;gap:24px">
-      <div class="eyebrow">Final product</div>
-      <h2 style="font-size:64px">Open source.<br/>On <span class="mars">GitHub.</span></h2>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--ink-dim)">
-        <div>· environment + weights</div>
-        <div>· evaluation scripts</div>
-        <div>· 9-part blog series</div>
-      </div>
-    </div>
-
-    <div class="terminal">
-      <div><span class="prompt">$</span> <span class="key">git</span> clone github.com/NikoBrain/TOAST</div>
-      <div><span class="prompt">$</span> <span class="key">python</span> main_hierarchical_validate.py \</div>
-      <div style="padding-left:24px">--episodes 50 --perturb --ppo v34f_window0.zip</div>
-      <div class="out faint">[t=000d] TMI burn &middot; oracle &middot; &Delta;v = 982 m/s</div>
-      <div class="out faint">[t=120d] cruise correction &middot; oracle &middot; 4 m/s</div>
-      <div class="out faint">[t=200d] hand-off &rarr; PPO specialist</div>
-      <div class="out faint">[t=235d] Mars sphere of influence</div>
-      <div class="out ok">[t=240d] capture &check; rp = 46,200 km &middot; e = 0.53</div>
-      <div class="out faint">                       (oracle alone: 102,400 km)</div>
-      <div><span class="prompt">$</span> <span style="color:var(--mars)">█</span></div>
-    </div>
-    <div class="pagenum">19 / 21</div>
-  </section>
-
-  <!-- ============================================================ 14: REFS -->
-  <section class="s-refs" data-screen-label="20 References">
-    <div>
-      <div class="eyebrow">References · MLA</div>
-    </div>
-
-    <div class="ref-list">
-      <div class="ref"><div class="num">[01]</div><div class="body"><strong>Federici, Lorenzo, Boris Benedikter, and Alessandro Zavoli.</strong> "Deep Learning Techniques for Autonomous Spacecraft Guidance During Proximity Operations." <em>Journal of Spacecraft and Rockets</em>, 2021. arXiv:2008.08501.</div></div>
-      <div class="ref"><div class="num">[02]</div><div class="body"><strong>Kenneally, Patrick W., Scott Piggott, and Hanspeter Schaub.</strong> "Basilisk: A Flexible, Scalable and Modular Astrodynamics Simulation Framework." <em>Journal of Aerospace Information Systems</em>, vol. 17, no. 9, 2020.</div></div>
-      <div class="ref"><div class="num">[03]</div><div class="body"><strong>Schulman, John, et al.</strong> "Proximal Policy Optimization Algorithms." arXiv:1707.06347, 2017.</div></div>
-      <div class="ref"><div class="num">[04]</div><div class="body"><strong>Raffin, Antonin, et al.</strong> "Stable-Baselines3: Reliable Reinforcement Learning Implementations." <em>Journal of Machine Learning Research</em>, vol. 22, no. 268, 2021.</div></div>
-      <div class="ref"><div class="num">[05]</div><div class="body"><strong>Towers, Mark, et al.</strong> "Gymnasium: A Standard Interface for Reinforcement Learning Environments." Farama Foundation, 2023.</div></div>
-    </div>
-    <div class="pagenum">20 / 21</div>
-  </section>
-
-  <!-- ============================================================ 15: THANKS -->
-  <section class="s-thanks" data-screen-label="21 Thanks">
+  <!-- ============================================================ 19: THANKS -->
+  <section class="s-thanks" data-screen-label="20 Thanks">
     <svg class="traj-bg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
       <ellipse cx="960" cy="540" rx="600" ry="220" class="orbit-mark"/>
       <ellipse cx="960" cy="540" rx="900" ry="340" class="orbit-mark"/>
       <circle cx="960" cy="540" r="6" class="body-sun"/>
     </svg>
-    <div class="eyebrow">End</div>
-    <div class="huge">thanks.</div>
 
-    <div style="position:absolute;bottom:80px;right:96px;display:flex;flex-direction:column;gap:10px;align-items:flex-end;font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--ink-dim)">
-      <div></div>
-      <div>github.com/NikoBrain/TOAST</div>
+    <div class="big">
+      A <em>learned policy</em> can capture Mars tighter than the math.
     </div>
-    <div class="pagenum">21 / 21</div>
+
+    <div class="footer">
+      <div class="mono" style="color:var(--ink);font-size:24px">github.com/NikoBrain/TOAST</div>
+      <div class="mono" style="color:var(--ink-faint);font-size:14px;letter-spacing:0.18em;text-align:right">
+        nikola mazzola  ·  may 2026
+      </div>
+    </div>
+
+    <div class="pagenum">20 / 20</div>
   </section>
 
 </deck-stage>
