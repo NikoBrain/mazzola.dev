@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 10: Stitched and Bound | Senior Project Blog</title>
+  <meta name="blog-title" content="Stitched and Bound">
+  <meta name="blog-date" content="May 12, 2026">
+  <meta name="blog-week" content="Week 10">
+  <meta name="blog-description" content="Stitching the oracle and v32 into one end-to-end controller, finding the fuel budget that broke the hand-off, and training a perturbation-robust capture specialist that beats the oracle alone.">
+  <link rel="icon" href="/profile.jpg" type="image/jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,900;1,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <!-- ─── NAV ─── -->
+  <nav class="site-nav">
+    <span class="nav-brand"><a href="/">mazzola.dev</a></span>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/blog.html" class="active">Blog</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero reveal">
+    <div class="hero-eyebrow">Senior Project Blog &nbsp;·&nbsp; Week 10 &nbsp;·&nbsp; May 12, 2026</div>
+    <h1 class="hero-title"><em>Stitched and Bound</em></h1>
+    <p class="hero-sub">
+      Stitching the oracle and v32 into one end-to-end controller, finding the fuel budget that broke the hand-off, and training a perturbation-robust capture specialist that beats the oracle alone.
+    </p>
+  </header>
+
+  <!-- ─── ORBIT ANIMATION ─── -->
+  <div class="orbit-container reveal" data-asteroids="100" data-kuiper="80">
+    <div class="orbit-ring" style="--size:80px; --speed:5s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#995900;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:140px; --speed:9s;">
+      <div class="orbit-dot" style="--dot:#4a6aff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:200px; --speed:15s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#e05c3a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:50px; --speed:3s;">
+      <div class="orbit-dot" style="--dot:#777777;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:400px; --speed:20s;">
+      <div class="orbit-dot" style="--dot:#e2ac7a;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:500px; --speed:25s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#ada00e;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:600px; --speed:25s;">
+      <div class="orbit-dot" style="--dot:#6c6cff;"></div>
+    </div>
+    <div class="orbit-ring" style="--size:700px; --speed:25s; --dir:reverse;">
+      <div class="orbit-dot" style="--dot:#3535fb;"></div>
+    </div>
+    <div class="orbit-sun"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ─── 01 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">01</span> The Setup</h2>
+
+    <p>
+      Welcome back. v32 from last week captures Mars 20/20 across four cruise spawn points on window 0, and the oracle solves the full Earth-to-Mars problem at 97.5% across all four launch windows. Both pieces work; what was missing was a way to glue them together. Five attempts to extend v32 by retraining had failed, so the plan for this week was to compose the two solvers behind one <code>predict</code> interface and skip the retraining altogether.
+    </p>
+
+    <p>
+      Phase 0 and most of Phase 1 are oracle territory; the last 40 days of cruise plus the MOI brake go to v32. The hand-off boundary is v32's outermost training cruise spawn point, and the waypoint cache that defines that spawn was produced by running this same oracle. Under deterministic clean physics, the oracle's state at $T - 40$ days matches v32's training distribution by construction.
+    </p>
+
+    <div class="reading-log">
+      <div class="reading-log-header">// Activity Log, Week 10 //</div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/controllers/mars_hierarchical.py (hand-off ET fix + fallback gate)</div>
+          <div class="re-author">Switch hand-off from a fixed-offset rule to a cached-ET equality so the SC lands exactly on the trained spawn state</div>
+        </div>
+        <div class="re-note">Stitching, refined</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/env_config.py + envs/mars_nasa_env.py (spawn_mass_kg_override)</div>
+          <div class="re-author">New config field for realistic depleted-mass spawn so the capture specialist trains under the same fuel budget it gets in the live hand-off</div>
+        </div>
+        <div class="re-note">Fuel budget fix</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/v33_realistic_t40d</div>
+          <div class="re-author">PPO resumed from v32 with mass override 252 kg, T-40d spawn pinned, lr=1e-4, ent_coef=0.001; first capture at 200k steps</div>
+        </div>
+        <div class="re-note">v33 specialist</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">utils/controllers/mars_hierarchical.py (obs spoof at hand-off)</div>
+          <div class="re-author">Dynamic TIME_TO_GO recomputed from a latched hand-off step so PPO sees ttg≈1 even though env._step≈197</div>
+        </div>
+        <div class="re-note">Distribution match</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">envs/mars_nasa_env.py (_mars_perturb + 5 channels)</div>
+          <div class="re-author">All five Federici-style perturbation channels plumbed through MarsNasaEnv with Mars-realistic defaults gentler than hohmann's</div>
+        </div>
+        <div class="re-note">Perturbation framework</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">runs/v34f_window0_perturbrobust</div>
+          <div class="re-author">BC v5 init + multi-offset spawn + 30k km spawn noise + mars perturb defaults; 48/50 = 96% capture under perturbations</div>
+        </div>
+        <div class="re-note">Perturb-robust breakthrough</div>
+      </div>
+      <div class="reading-entry">
+        <div>
+          <div class="re-title">main_hierarchical_validate.py</div>
+          <div class="re-author">End-to-end driver with per-episode trajectory plot, Vizard playback, and perturbation toggle</div>
+        </div>
+        <div class="re-note">Validation harness</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 02 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">02</span> The Hand-Off Misaligned</h2>
+
+    <p>
+      The first version of the stitched controller dispatched on time-to-SOI: oracle while $t_\text{to\_SOI} > 40\,\text{d}$, PPO once it dropped under. Clean-physics runs showed the moment the controller switched, the spacecraft's heliocentric position differed from the cached $T - 40\,\text{d}$ waypoint by roughly 2.3 Mkm and the velocity by about 16 m/s. This meant the hand-off was off by exactly one decision step.
+    </p>
+
+    <p>
+      The cache is built at decision-step granularity by <code>scripts/precompute_soi_entry.py</code>. The oracle does not stop precisely at $T - 40\,\text{d}$; it stops at whichever decision-step boundary happens around that moment, which can be up to a full step on either side. So the cached waypoint labelled "T-40d" actually corresponds to $T - 40.32\,\text{d}$, and any fixed-offset rule lands the live spacecraft on the wrong step's worth of cruise.
+    </p>
+
+    <p>
+      The fix is to anchor the hand-off on the cached ET itself rather than on a relative time-to-SOI. The npz file records the ephemeris time of every cruise waypoint it stores. The controller now loads <code>cruise_epoch_et[i, idx]</code> alongside the position and velocity, and switches the moment the live ET reaches that exact value. Under deterministic clean physics the result is $\Delta r$ and $\Delta v$ at hand-off both round to zero.
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># Old (fixed-offset rule):</span><br>
+      <code>if t_to_soi(env) > 40*86400: dispatch_to_oracle()</code><br>
+      <span class="comment"># Live hand-off was off by ~1 decision step → Δr ≈ 2.3 Mkm at switch</span><br><br>
+      <span class="comment"># New (cached-ET rule):</span><br>
+      <code>if env.et_now() < cruise_epoch_et: dispatch_to_oracle()</code><br>
+      <span class="comment"># Clean hand-off lands exactly on the training spawn state (Δr ≈ 0)</span>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Fallback Gate</h3>
+
+    <p>
+      Under perturbations the live state will not match the cached waypoint perfectly even with the corrected dispatch rule. A pos / vel quality gate guards against off-distribution hand-offs: if $|\Delta r| > 150{,}000\,\text{km}$ or $|\Delta v| > 50\,\text{m/s}$, the controller stays on the oracle for the rest of the episode. The gate is a safety net for outliers and is not exercised in v34f's main results, but it gives the system a graceful fallback when the upstream drift is too large for the trained PPO to recover from.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 03 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">03</span> The Fuel Budget</h2>
+
+    <p>
+      With the hand-off fix in place, the stitched v32 controller still failed at end-to-end. Eval runs all reached Mars's SOI with the right approach geometry, but $\sim$80% of episodes hit fuel depletion before the brake closed and the eccentricity hovered at 0.995, barely hyperbolic. The MOI burn was being initiated at full commitment but cut short. Something about the live state at hand-off was inconsistent with v32's training distribution after all.
+    </p>
+
+    <p>
+      Turns out the culprit was the fuel budget. v32 was trained from a SOI-edge spawn with the spacecraft at full tank: $m_0 = 1200\,\text{kg}$, all 1100 kg of propellant available for the MOI brake. The policy learned a burn profile that uses roughly 811 kg of that propellant over the 50–80 steps inside Mars's SOI. In the hierarchical run, by contrast, the oracle has already spent fuel on the TMI burn ($\sim$888 kg) and a small TCM allowance ($\sim$61 kg) during cruise. By the time the spacecraft reaches $T - 40\,\text{d}$, total mass is about 251 kg and the available propellant for capture is 171 kg. v32 then over-spreads its trained burn profile and exhausts the tank before periapsis.
+    </p>
+
+    <p>
+      A useful aside on Basilisk physics surfaced while debugging this. BSK's spacecraft hub keeps its inertial mass constant, so the dynamics integrator computes $\Delta v = F \cdot t / m_0$ regardless of how much propellant has actually been depleted. The propellant bookkeeping (Tsiolkovsky) runs in parallel but doesn't feed back into the integrator. The practical consequence is that a commanded burn magnitude produces the same per-step $\Delta v$ whether the tracked tank is full or nearly empty; what changes is only the fuel counter and the latched "fuel exhausted" termination flag. The fix therefore lives entirely in the training-time fuel counter that the policy sees, while the simulator dynamics stay unchanged.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 04 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">04</span> v33: Realistic-Mass Specialist</h2>
+
+    <p>
+      A new <code>cfg.spawn_mass_kg_override</code> field plus a matching <code>--spawn-mass-kg-override</code> CLI flag let the SOI-edge spawn write any chosen total mass into the env at reset, while leaving the BSK hub mass alone (so per-step $\Delta v$ is unaffected). v33 is a fine-tune of v32 with the override set to 252 kg, the launch window pinned to 0, and the cruise offset fixed at $T - 40\,\text{d}$ to match the hand-off boundary:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># v33 fuel-budget specialist (resumes from v32 weights)</span><br>
+      <code>python main_train.py --env mars_nasa \</code><br>
+      <code>&nbsp;&nbsp;--resume successful_models/v32_window0_multioffset_0to40d_5x5_5x5.zip \</code><br>
+      <code>&nbsp;&nbsp;--cruise-offset-seconds 3456000  --spawn-mass-kg-override 252 \</code><br>
+      <code>&nbsp;&nbsp;--epoch-weights "1,0,0,0" \</code><br>
+      <code>&nbsp;&nbsp;--lr 1e-4 --ent-coef 0.001 --reset-log-std -1.5 \</code><br>
+      <code>&nbsp;&nbsp;--clamp-log-std --clamp-log-std-min -2.5 --clamp-log-std-max -0.3</code>
+    </div>
+
+    <p>
+      First capture event landed at the 200k-step evaluation: $+1521$ reward, ep_len 186, deterministic. Training plateaued from there but the best checkpoint was preserved. The recipe is the same v24 / v32 recipe (low entropy, clamped log_std) with the fuel budget as the only new variable.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Obs Spoof at the Hand-Off</h3>
+
+    <p>
+      v33 is trained from <code>env._step = 0</code> but at the live hand-off <code>env._step</code> is around 197 (Phase 0 plus 196 cruise steps). The observation vector contains a <code>TIME_TO_GO</code> component that v33 saw as roughly 1.0 during training and would see as $\sim$0.55 in deployment if fed raw. To keep the live distribution close to training, the controller latches the step index at the first PPO dispatch and recomputes the observation's <code>TIME_TO_GO</code> dynamically:
+    </p>
+
+    <div class="formula-box">
+      $$\texttt{TIME\_TO\_GO}_\text{spoofed} \;=\; \max\!\Big(0,\; 1 - \tfrac{\texttt{env.\_step} - \texttt{step\_at\_handoff}}{n_\text{decision\_steps}}\Big)$$
+      <br>
+      <span class="comment"># For v33 (trained at mass_kg=252): MASS_FRAC is already correct, leave it.</span><br>
+      <span class="comment"># For v32 (trained at full tank): also spoof MASS_FRAC = 1.0.</span>
+    </div>
+
+    <p>
+      A <code>--ppo-realistic-mass / --no-ppo-realistic-mass</code> toggle picks the right spoofing behaviour for whichever PPO is being run, since v32 and v33 have different training-mass assumptions and the controller has to match each one.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 05 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">05</span> End-to-End</h2>
+
+    <p>
+      The stitched controller with the v33 PPO, the cached-ET hand-off rule, and the obs spoof produces a complete Earth-to-Mars run from LEO to a bound Mars orbit. On clean physics, window 0, fixed parking orbit, 5 random seeds: 5/5 captures, mean reward $+1565$, mean capture eccentricity 0.940, mean periapsis altitude 84,614 km. The original project goal of an autonomous Earth-to-Mars transfer is met.
+    </p>
+
+    <img
+      src="/traj_hierarchical.png"
+      alt="Hierarchical Earth to Mars trajectory: oracle handles the TMI burn and most of the cruise, PPO takes over for the last 40 days plus capture; spacecraft enters a bound Mars orbit"
+      style="width:100%; border-radius:6px; border:1px solid rgba(240,177,85,.2); padding:1rem; margin:1.5rem 0;"
+    />
+    <p style="font-size:.82rem; color:var(--muted); margin-top:-.8rem; margin-bottom:1.5rem; text-align:center;">
+      Five-episode evaluation of the hierarchical controller on window 0, clean physics. Heliocentric plane (left) with Earth's and Mars's full-year orbits as dashed circles, the spacecraft traces (coloured by episode), and burn events marked with cyan dots (oracle) or red stars (PPO). Distance to Mars (top right) decays from 170 Mkm at TMI to inside the SOI by step 200. Burn $\Delta v$ per step (bottom right, symlog) shows the TMI as a $\sim$3.5 km/s spike at step 0, small oracle TCMs through cruise, and a concentrated PPO MOI burn around step 400.
+    </p>
+
+    <p>
+      The trajectory plot makes the role of each solver visible. The blue Phase-0 spike is the oracle's Lambert TMI, sized at one decision step. The cyan dots scattered through cruise are oracle TCMs, each a few m/s of trajectory correction. The red star cluster near step 400 is v33's MOI burn, concentrated into roughly six high-magnitude steps right at periapsis. The cyan-to-red transition is the hand-off boundary, $T - 40\,\text{d}$ before SOI entry.
+    </p>
+
+    <div class="hypo-panel">
+      <h3>// What's Doing What //</h3>
+      <p>
+        Both solvers contribute to the final $+1565$ reward, but not symmetrically:
+      </p>
+      <div class="formula-box">
+        <span class="comment"># Hierarchical capture (window 0, seed 0)</span><br>
+        <span class="comment"># Oracle Phase 0 TMI:              ~3.5 km/s, ~888 kg fuel</span><br>
+        <span class="comment"># Oracle Phase 1 cruise TCMs:      ~40 m/s,  ~61 kg fuel</span><br>
+        <span class="comment"># PPO Phase 1 endgame (40d):       ~3 m/s,   ~5 kg fuel</span><br>
+        <span class="comment"># PPO Phase 2 MOI brake:          ~430 m/s, ~165 kg fuel</span><br>
+        $$\text{capture: } e = 0.940,\; r_p^\text{alt} = 84{,}614\,\text{km}$$
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 06 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">06</span> Federici-Style Perturbations</h2>
+
+    <p>
+      The clean-physics 100% rate is the easy half of robustness. The harder question is what survives when the simulator stops being a clean ephemeris integrator. Roberto Federici's <em>Deep Learning-Based Spacecraft Optimal Guidance</em> dissertation defines a five-channel noise model for exactly this scenario with navigation sensor noise, thruster magnitude noise, thruster pointing noise, unmodelled-force impulses, and stochastic missed-thrust events. The Hohmann env already had these wired in while the Mars NASA env had been ignoring its <code>cfg.perturb</code> entirely.
+    </p>
+
+    <p>
+      All five channels are now plumbed through <code>MarsNasaEnv</code>:
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">1 km</span>
+        <span class="stat-label">Position obs noise, $1\sigma$ per axis</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">0.5 m/s</span>
+        <span class="stat-label">Velocity obs noise, $1\sigma$ per axis</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">0.5%</span>
+        <span class="stat-label">Thruster magnitude, $1\sigma$ multiplicative</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">0.3°</span>
+        <span class="stat-label">Thruster pointing, $1\sigma$ axis tilt</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">0.05 m/s</span>
+        <span class="stat-label">Dynamics impulse, $1\sigma$ per step</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">0.5%</span>
+        <span class="stat-label">Missed-thrust prob per step (capped at 1/ep)</span>
+      </div>
+    </div>
+
+    <p>
+      The Mars defaults are roughly 10× milder than the Hohmann defaults. A first attempt at "v34_robust" used the Hohmann-scale perturbations on Mars and the result was a 100% failure rate: a 5% thruster magnitude error on the 3.5 km/s TMI burn translates to about 175 m/s of $\Delta v$ uncertainty, which by the time the spacecraft reaches Mars compounds to roughly 1.2 Mkm of SOI miss. The oracle then cannot recover the trajectory inside its Phase 1 $\Delta v$ budget. Gentler defaults at the Mars scale let the oracle do its job over the 240-day cruise.
+    </p>
+
+    <p>
+      Sweeping the oracle alone across $\{0\times, 1\times, 5\times, 10\times\}$ the Mars defaults gives capture rates of $100\%$, $90\%$, $80\%$, $70\%$ across 20 seeds each. At the realistic $1\times$ scale, the oracle drops to 90%. At Federici's full strength ($10\times$) it drops to 70%. The Mars defaults are the regime our launch windows actually face.
+    </p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ─── 07 ─── -->
+  <section class="reveal">
+    <h2 class="section-head"><span class="num">07</span> v34f: Perturbation-Robust Capture</h2>
+
+    <p>
+      With perturbations on, v33 alone in the hierarchy collapses from 100% to 25% capture. The drift accumulated through 240 days of cruise puts the spacecraft well off the cached spawn waypoint at hand-off, and v33's training distribution is too narrow to recover. The obvious move is to widen that training distribution, which means training a new capture specialist under the same noise the deployment will see.
+    </p>
+
+    <p>
+      Three earlier attempts to do this failed. v34c fine-tuned v33's anchor with 50 km/axis spawn-state noise and collapsed to a coast policy. v34d turned perturbations on without spawn noise and collapsed to the same coast policy. v34e used a narrower 5 km/axis spawn noise on v32 instead of v33, and the basin barely widened (10% capture, deployment-shifted by an average of 230k km from training spawn). This shows that fine-tuning from v32 or v33 anchors with anything resembling realistic spawn-distribution width destroys the policy faster than the new gradient can rebuild it.
+    </p>
+
+    <p>
+      v34f changes the initialisation. Instead of resuming from a previous PPO checkpoint, it warm-starts from a behaviour-cloning baseline trained on a Phase-2-heavy oracle dataset (<code>bc_policy_v5_p2heavy.pt</code>). The BC loss landscape is flatter than v32's or v33's sharp local optimum, so PPO has room to find a broader basin without first having to escape an existing one:
+    </p>
+
+    <div class="formula-box">
+      <span class="comment"># v34f training recipe</span><br>
+      <code>python main_train.py --env mars_nasa \</code><br>
+      <code>&nbsp;&nbsp;--bc-init bc_checkpoints/bc_policy_v5_p2heavy.pt \</code><br>
+      <code>&nbsp;&nbsp;--cruise-offset-random-choices-s "0,604800,2592000,3456000" \</code><br>
+      <code>&nbsp;&nbsp;--cruise-offset-random-weights "1,3,1,3" \</code><br>
+      <code>&nbsp;&nbsp;--spawn-pos-noise-km 30000 --spawn-vel-noise-ms 20 \</code><br>
+      <code>&nbsp;&nbsp;--spawn-mass-kg-override 252  --epoch-weights "1,0,0,0" \</code><br>
+      <code>&nbsp;&nbsp;--lr 1e-4 --ent-coef 0.002  --log-std-init -2.0 \</code><br>
+      <code>&nbsp;&nbsp;--clamp-log-std --clamp-log-std-min -2.5 --clamp-log-std-max -0.3 \</code><br>
+      <code>&nbsp;&nbsp;--timesteps 1_000_000 --n-envs 8</code>
+    </div>
+
+    <p>
+      The 30,000 km / 20 m/s spawn-state noise covers the actual deployment drift distribution (mean $\sim$230k km cumulative miss, with the long tail captured by the noise's 3$\sigma$ wing). 5 km was too narrow, 50 km from a sharper anchor was too wide, 30 km from a BC baseline lands in the sweet spot.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Save Best Model Early</h3>
+
+    <p>
+      Evaluation reward peaks around step 200,000 (mean 985, std 524 across episodes, with the large variance reflecting captured-vs-not-captured mixing) and then degrades back toward a coast policy by 1M steps (eval reward 528). The standard SB3 best-checkpoint callback caught the peak and the late degradation didn't overwrite it.
+    </p>
+
+    <h3 style="font-family:'DM Serif Display',serif; font-size:1.15rem; margin:1.5rem 0 0.5rem;">Result</h3>
+
+    <p>
+      Over 50 perturbed episodes on window 0:
+    </p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num">48 / 50</span>
+        <span class="stat-label">v34f hier (perturbed, this work)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">19 / 20</span>
+        <span class="stat-label">Oracle alone (perturbed, 95%)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5 / 20</span>
+        <span class="stat-label">v33 hier (perturbed, 25%)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">5 / 5</span>
+        <span class="stat-label">v33 hier (clean physics)</span>
+      </div>
+    </div>
+
+    <p>
+      v34f under perturbations not only matches the clean-physics rate of the oracle alone, it produces a markedly tighter capture orbit: mean eccentricity 0.59 versus the oracle's 0.86, mean periapsis altitude 46,000 km versus the oracle's 102,000 km. The PPO uses the extra information in its observation (Mars-relative state, B-plane error) to commit a sharper MOI brake than the oracle's open-loop Lambert solution.
+    </p>
+
+    <div class="callout gold">
+      <span class="callout-label">Why BC Initialisation Worked</span>
+      <p>
+        v32 and v33 are sharp local optima of the Phase-2 reward surface, fitted to narrow spawn distributions. A gradient step in any direction that helps generalisation also moves the policy away from one of those optima, and the reward signal under exploration noise is dominated by the immediate loss of capture probability. PPO retreats. BC v5 sits in a flatter region of the same loss landscape with smaller second derivatives, so PPO can shift the policy along the generalisation direction without paying as much in the local capture rate.
+      </p>
+    </div>
+
+    <p>
+      The model is window-0 only. The same training recipe with <code>--epoch-weights</code> set differently is the natural starting point for the remaining three launch windows, but the proof-of-concept for the project's headline goal is complete with a learned policy delivers an Earth-to-Mars transfer under realistic deployment noise.
+    </p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="post-footer reveal">
+    <div class="byline">
+      WEEK 10 &nbsp;/&nbsp; MAY 12, 2026<br>
+      SENIOR PROJECT — ADAPTIVE TRAJECTORY OPTIMIZATION
+    </div>
+    <span class="next-badge">Next → Project Wrap-Up</span>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+  (function() {
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars(n) {
+      stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.1,
+          a: Math.random() * 0.7 + 0.1,
+          speed: Math.random() * 0.015 + 0.003,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawStars(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.6 + 0.4 * Math.sin(s.phase + t * s.speed));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,215,255,${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(drawStars);
+    }
+
+    resize();
+    initStars(260);
+    window.addEventListener('resize', () => { resize(); initStars(260); });
+    requestAnimationFrame(drawStars);
+  })();
+  (function() {
+    const container = document.querySelector('.orbit-container[data-asteroids]');
+    if (container) {
+      const count   = parseInt(container.dataset.asteroids, 10) || 10;
+      const minSize = 250, maxSize = 310;
+      const minSpd  = 25,  maxSpd  = 38;
+      const colors  = ['#7a6a5a','#6b5f52','#8a7a6a','#706560','#9a8a78','#7a6e62','#857870','#6a5f55','#7d7268','#907f72'];
+      const dotSizes = [3, 3, 3, 4];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 30).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const container = document.querySelector('.orbit-container[data-kuiper]');
+    if (container) {
+      const count   = parseInt(container.dataset.kuiper, 10) || 10;
+      const minSize = 760, maxSize = 870;
+      const minSpd  = 38,  maxSpd  = 55;
+      const colors  = ['#a8c8e8','#8ab5d0','#c0d8f0','#7aa0b8','#b0cce0','#9ab8cc','#d0e8f8','#88aac0','#c8ddf0','#a0bcd4'];
+      const dotSizes = [2, 2, 3, 2];
+      const sun = container.querySelector('.orbit-sun');
+      for (let i = 0; i < count; i++) {
+        const size    = (minSize + Math.random() * (maxSize - minSize)).toFixed(0);
+        const speed   = (minSpd  + Math.random() * (maxSpd  - minSpd )).toFixed(1);
+        const delay   = -(Math.random() * 50).toFixed(1);
+        const dir     = Math.random() < 0.5 ? 'reverse' : 'normal';
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const dotSize = dotSizes[Math.floor(Math.random() * dotSizes.length)];
+        const ring = document.createElement('div');
+        ring.className = 'orbit-asteroid';
+        ring.style.cssText = `--size:${size}px; --speed:${speed}s; --delay:${delay}s; --dir:${dir};`;
+        const dot = document.createElement('div');
+        dot.className = 'orbit-dot';
+        dot.style.cssText = `--dot:${color}; --dot-size:${dotSize}px;`;
+        ring.appendChild(dot);
+        container.insertBefore(ring, sun);
+      }
+    }
+  })();
+
+  (function() {
+    const els = document.querySelectorAll('.reveal');
+    const io  = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.07, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+  })();
+</script>
+<script src="orbit.js"></script>
+
+</body>
+</html>
